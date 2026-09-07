@@ -1,0 +1,13 @@
+digraph G { graph [rankdir=LR,bgcolor="white",pad="0.3",nodesep="0.35",ranksep="0.5"]; node [fontname="Apple SD Gothic Neo",fontsize=16,style="rounded,filled",fillcolor="#ecf6f0",color="#306953",margin="0.18,0.13"]; edge [fontname="Apple SD Gothic Neo",fontsize=13,color="#526a5e"];
+A [label="작은 실제 요청",shape=box];
+B [label="내 하네스의 모델 연결",shape=box];
+C [label="읽기 도구 요청 검사",shape=box];
+D [label="실습 파일 실제 읽기",shape=box];
+E [label="도구 결과를 모델에 전달",shape=box];
+F [label="근거 있는 최종 답 표시",shape=box];
+A -> B [label=""];
+B -> C [label=""];
+C -> D [label=""];
+D -> E [label=""];
+E -> F [label=""];
+}
