@@ -1,0 +1,410 @@
+{
+  "schema_version": 1,
+  "repo": "alibaba/terminal-bench-pro",
+  "url": "https://github.com/alibaba/terminal-bench-pro",
+  "revision": "874af409da6aafebccbf3bc5bb41a2fa4d78784d",
+  "subset_id": "education-easy2-hard8-v1",
+  "purpose": "교육용 고정 10문제 subset. 공식 전체 점수나 공식 대표 표본이 아님.",
+  "selection_date": "2026-09-08",
+  "upstream_metadata_counts": {
+    "hard": 64,
+    "medium": 64,
+    "easy": 72
+  },
+  "selection_counts": {
+    "easy": 2,
+    "hard": 8
+  },
+  "tasks": [
+    {
+      "name": "extract-paper-metadata-to-json",
+      "difficulty": "easy",
+      "category": "data-processing",
+      "selection_reason": "표시가 있는 문서에서 구조화된 JSON을 생성하는 자료 읽기·파일 출력 기준점이다.",
+      "environment": {
+        "build_timeout_sec": 600.0,
+        "cpus": 1,
+        "memory_mb": 2048,
+        "storage_mb": 10240,
+        "gpus": 0,
+        "base_image": "skylensage-registry.cn-hangzhou.cr.aliyuncs.com/instances/1124:t-bench-python-3-13",
+        "dependencies": [
+          "Python 3.13 base image"
+        ],
+        "notes": "별도 패키지 설치 없음. papers 입력은 이미지에 복사됨.",
+        "verification_status": "metadata_and_dockerfile_review_only",
+        "image_pull_status": "NOT_RUN",
+        "build_status": "NOT_RUN",
+        "task_run_status": "NOT_RUN"
+      },
+      "timeouts": {
+        "agent_sec": 3600.0,
+        "verifier_sec": 360.0
+      },
+      "sources": {
+        "metadata": "https://github.com/alibaba/terminal-bench-pro/blob/874af409da6aafebccbf3bc5bb41a2fa4d78784d/extract-paper-metadata-to-json/task.toml",
+        "instruction": "https://github.com/alibaba/terminal-bench-pro/blob/874af409da6aafebccbf3bc5bb41a2fa4d78784d/extract-paper-metadata-to-json/instruction.md",
+        "environment": "https://github.com/alibaba/terminal-bench-pro/blob/874af409da6aafebccbf3bc5bb41a2fa4d78784d/extract-paper-metadata-to-json/environment/Dockerfile"
+      },
+      "source_sha256": {
+        "metadata": "398cfd72b828d73f62c5b95328bb4cd75232eb4d887ee53103fa0dba75376b7a",
+        "instruction": "a6b1097b21cab1f5cd3f49e8f460447b34081e59d859ab6429281df8c118ba09",
+        "environment": "db03beba3d7831295fbc32c213141947d919d46ef794143eaf99a982df95b186"
+      }
+    },
+    {
+      "name": "recover-git-reflog-commits",
+      "difficulty": "easy",
+      "category": "software-engineering",
+      "selection_reason": "로컬 Git 상태를 조사하고 복원한 뒤 작업 트리 상태까지 확인하는 다단계 CLI 기준점이다.",
+      "environment": {
+        "build_timeout_sec": 600.0,
+        "cpus": 1,
+        "memory_mb": 2048,
+        "storage_mb": 10240,
+        "gpus": 0,
+        "base_image": "skylensage-registry.cn-hangzhou.cr.aliyuncs.com/instances/1124:t-bench-ubuntu-24-04",
+        "dependencies": [
+          "Ubuntu 24.04 base image",
+          "git"
+        ],
+        "notes": "apt 저장소 접근 필요. 테스트용 저장소는 Docker 빌드에서 생성됨.",
+        "verification_status": "metadata_and_dockerfile_review_only",
+        "image_pull_status": "NOT_RUN",
+        "build_status": "NOT_RUN",
+        "task_run_status": "NOT_RUN"
+      },
+      "timeouts": {
+        "agent_sec": 3600.0,
+        "verifier_sec": 360.0
+      },
+      "sources": {
+        "metadata": "https://github.com/alibaba/terminal-bench-pro/blob/874af409da6aafebccbf3bc5bb41a2fa4d78784d/recover-git-reflog-commits/task.toml",
+        "instruction": "https://github.com/alibaba/terminal-bench-pro/blob/874af409da6aafebccbf3bc5bb41a2fa4d78784d/recover-git-reflog-commits/instruction.md",
+        "environment": "https://github.com/alibaba/terminal-bench-pro/blob/874af409da6aafebccbf3bc5bb41a2fa4d78784d/recover-git-reflog-commits/environment/Dockerfile"
+      },
+      "source_sha256": {
+        "metadata": "e1f45774144b25d4f6d82bc62af7ed27dbb46141dd38a580f85cdb45652133be",
+        "instruction": "8e5d4a05b607ab1ef07e73265c6e0c8b5e4f690719f033a9dfc4d704ef612b6a",
+        "environment": "ea0d7178308f838214c5af2ff62a12a989e64620253cbac427e0f1c7790601e9"
+      }
+    },
+    {
+      "name": "advanced-json-to-rfc4180-csv-converter",
+      "difficulty": "hard",
+      "category": "data-processing",
+      "selection_reason": "복합 입력 정규화와 엄격한 출력 형식을 동시에 다루며 단순 파일 요약과 다른 데이터 처리 능력을 관찰한다.",
+      "environment": {
+        "build_timeout_sec": 600.0,
+        "cpus": 1,
+        "memory_mb": 2048,
+        "storage_mb": 10240,
+        "gpus": 0,
+        "base_image": "skylensage-registry.cn-hangzhou.cr.aliyuncs.com/instances/1124:t-bench-python-3-13",
+        "dependencies": [
+          "Python 3.13 base image",
+          "Python standard library"
+        ],
+        "notes": "추가 패키지 설치 없음. 입력 JSON을 이미지에 복사함.",
+        "verification_status": "metadata_and_dockerfile_review_only",
+        "image_pull_status": "NOT_RUN",
+        "build_status": "NOT_RUN",
+        "task_run_status": "NOT_RUN"
+      },
+      "timeouts": {
+        "agent_sec": 3600.0,
+        "verifier_sec": 600.0
+      },
+      "sources": {
+        "metadata": "https://github.com/alibaba/terminal-bench-pro/blob/874af409da6aafebccbf3bc5bb41a2fa4d78784d/advanced-json-to-rfc4180-csv-converter/task.toml",
+        "instruction": "https://github.com/alibaba/terminal-bench-pro/blob/874af409da6aafebccbf3bc5bb41a2fa4d78784d/advanced-json-to-rfc4180-csv-converter/instruction.md",
+        "environment": "https://github.com/alibaba/terminal-bench-pro/blob/874af409da6aafebccbf3bc5bb41a2fa4d78784d/advanced-json-to-rfc4180-csv-converter/environment/Dockerfile"
+      },
+      "source_sha256": {
+        "metadata": "d28681bb5e6a824fda1b473e8943c3bf605cf305fa069ef2b75c2b24446b9d02",
+        "instruction": "fd5e71365bb489c1e8f27fb66f045b88afbd54962cbefa095bbf1d2f80d2c733",
+        "environment": "586fe9431bb85a91d59d6ab0a00f0aeae1ff241225d897837d4147c4a493bf91"
+      }
+    },
+    {
+      "name": "debug-bst-segfault-with-gdb",
+      "difficulty": "hard",
+      "category": "debugging",
+      "selection_reason": "실제 네이티브 프로그램과 디버거를 실행해 관찰 근거를 보고서로 남기는 작업이다.",
+      "environment": {
+        "build_timeout_sec": 600.0,
+        "cpus": 1,
+        "memory_mb": 2048,
+        "storage_mb": 10240,
+        "gpus": 0,
+        "base_image": "skylensage-registry.cn-hangzhou.cr.aliyuncs.com/instances/1124:t-bench-ubuntu-24-04",
+        "dependencies": [
+          "Ubuntu 24.04 base image",
+          "build-essential",
+          "gdb",
+          "make"
+        ],
+        "notes": "apt 저장소 접근 및 빌드 중 make 실행. 컨테이너에서 GDB 실행/추적 권한을 사전 확인해야 함.",
+        "verification_status": "metadata_and_dockerfile_review_only",
+        "image_pull_status": "NOT_RUN",
+        "build_status": "NOT_RUN",
+        "task_run_status": "NOT_RUN"
+      },
+      "timeouts": {
+        "agent_sec": 3600.0,
+        "verifier_sec": 360.0
+      },
+      "sources": {
+        "metadata": "https://github.com/alibaba/terminal-bench-pro/blob/874af409da6aafebccbf3bc5bb41a2fa4d78784d/debug-bst-segfault-with-gdb/task.toml",
+        "instruction": "https://github.com/alibaba/terminal-bench-pro/blob/874af409da6aafebccbf3bc5bb41a2fa4d78784d/debug-bst-segfault-with-gdb/instruction.md",
+        "environment": "https://github.com/alibaba/terminal-bench-pro/blob/874af409da6aafebccbf3bc5bb41a2fa4d78784d/debug-bst-segfault-with-gdb/environment/Dockerfile"
+      },
+      "source_sha256": {
+        "metadata": "3c848f8cc34905dabca796530207b2e242c3db0038efaca47869397cb389063d",
+        "instruction": "287102525bcc87f43c66acba1aaf8c1595f100d73b5dc03ec66c09f013bb8a91",
+        "environment": "24028001467598b1953bc536430d2c7a7e764e03de320bf8fb97c45f83dcbc83"
+      }
+    },
+    {
+      "name": "implement-depgraph-dependency-resolver",
+      "difficulty": "hard",
+      "category": "system-administration",
+      "selection_reason": "패키지 의존성·순서·충돌·오류 계약을 함께 구현하는 시스템 관리 분야의 작은 로컬 작업이다.",
+      "environment": {
+        "build_timeout_sec": 600.0,
+        "cpus": 1,
+        "memory_mb": 2048,
+        "storage_mb": 10240,
+        "gpus": 0,
+        "base_image": "skylensage-registry.cn-hangzhou.cr.aliyuncs.com/instances/1124:t-bench-python-3-13",
+        "dependencies": [
+          "Python 3.13 base image"
+        ],
+        "notes": "외부 패키지 레지스트리 서비스가 아니라 이미지에 복사된 로컬 manifest를 사용한다.",
+        "verification_status": "metadata_and_dockerfile_review_only",
+        "image_pull_status": "NOT_RUN",
+        "build_status": "NOT_RUN",
+        "task_run_status": "NOT_RUN"
+      },
+      "timeouts": {
+        "agent_sec": 3600.0,
+        "verifier_sec": 360.0
+      },
+      "sources": {
+        "metadata": "https://github.com/alibaba/terminal-bench-pro/blob/874af409da6aafebccbf3bc5bb41a2fa4d78784d/implement-depgraph-dependency-resolver/task.toml",
+        "instruction": "https://github.com/alibaba/terminal-bench-pro/blob/874af409da6aafebccbf3bc5bb41a2fa4d78784d/implement-depgraph-dependency-resolver/instruction.md",
+        "environment": "https://github.com/alibaba/terminal-bench-pro/blob/874af409da6aafebccbf3bc5bb41a2fa4d78784d/implement-depgraph-dependency-resolver/environment/Dockerfile"
+      },
+      "source_sha256": {
+        "metadata": "c8f6830d8721f85226487f79bb744a718cedcef5480229de4bdba664e969a745",
+        "instruction": "386131dcc299d8558016a835517172112c9ba63374b2de8f3385ef85ea8cf90d",
+        "environment": "71e8356015f50b84228fdef634c8fd2a77cd44a285bc011ae46e14dc38675cdd"
+      }
+    },
+    {
+      "name": "build-grpc-user-profile-service",
+      "difficulty": "hard",
+      "category": "software-engineering",
+      "selection_reason": "API 계약과 상태 변경·동시성·스트리밍을 가진 서버를 구성하여 지속 프로세스 관리 능력을 관찰한다.",
+      "environment": {
+        "build_timeout_sec": 600.0,
+        "cpus": 1,
+        "memory_mb": 2048,
+        "storage_mb": 10240,
+        "gpus": 0,
+        "base_image": "skylensage-registry.cn-hangzhou.cr.aliyuncs.com/instances/1124:t-bench-python-3-13",
+        "dependencies": [
+          "Python 3.13 base image",
+          "protobuf-compiler",
+          "grpcio==1.73.0",
+          "grpcio-tools==1.73.0"
+        ],
+        "notes": "apt/PyPI 접근 필요. 컨테이너 내부 TCP 5329와 백그라운드 서버 실행 필요; 호스트 공개 포트 불필요.",
+        "verification_status": "metadata_and_dockerfile_review_only",
+        "image_pull_status": "NOT_RUN",
+        "build_status": "NOT_RUN",
+        "task_run_status": "NOT_RUN"
+      },
+      "timeouts": {
+        "agent_sec": 3600.0,
+        "verifier_sec": 600.0
+      },
+      "sources": {
+        "metadata": "https://github.com/alibaba/terminal-bench-pro/blob/874af409da6aafebccbf3bc5bb41a2fa4d78784d/build-grpc-user-profile-service/task.toml",
+        "instruction": "https://github.com/alibaba/terminal-bench-pro/blob/874af409da6aafebccbf3bc5bb41a2fa4d78784d/build-grpc-user-profile-service/instruction.md",
+        "environment": "https://github.com/alibaba/terminal-bench-pro/blob/874af409da6aafebccbf3bc5bb41a2fa4d78784d/build-grpc-user-profile-service/environment/Dockerfile"
+      },
+      "source_sha256": {
+        "metadata": "75166209c0e85857a345fe2b5b6912837bfc05dd865344559f007cc788fe946a",
+        "instruction": "d0eef10e121177648180c2ca78a215be66d082c4ed5a86ea6a8a2655f193e9dd",
+        "environment": "8e141dc40536a9e50f308d258d8d4b55f0bcf85b791a304f6076a366cd431f7d"
+      }
+    },
+    {
+      "name": "symbolic-ode-solution-chemical-reaction",
+      "difficulty": "hard",
+      "category": "scientific-computing",
+      "selection_reason": "기호 계산 라이브러리와 엄격한 산출물 형식을 요구하여 과학 계산 분야를 포함한다.",
+      "environment": {
+        "build_timeout_sec": 600.0,
+        "cpus": 1,
+        "memory_mb": 2048,
+        "storage_mb": 10240,
+        "gpus": 0,
+        "base_image": "skylensage-registry.cn-hangzhou.cr.aliyuncs.com/instances/1124:t-bench-python-3-13",
+        "dependencies": [
+          "Python 3.13 base image",
+          "sympy"
+        ],
+        "notes": "PyPI 접근 필요. SymPy 버전은 원본 Dockerfile에서 고정되지 않음.",
+        "verification_status": "metadata_and_dockerfile_review_only",
+        "image_pull_status": "NOT_RUN",
+        "build_status": "NOT_RUN",
+        "task_run_status": "NOT_RUN"
+      },
+      "timeouts": {
+        "agent_sec": 3600.0,
+        "verifier_sec": 360.0
+      },
+      "sources": {
+        "metadata": "https://github.com/alibaba/terminal-bench-pro/blob/874af409da6aafebccbf3bc5bb41a2fa4d78784d/symbolic-ode-solution-chemical-reaction/task.toml",
+        "instruction": "https://github.com/alibaba/terminal-bench-pro/blob/874af409da6aafebccbf3bc5bb41a2fa4d78784d/symbolic-ode-solution-chemical-reaction/instruction.md",
+        "environment": "https://github.com/alibaba/terminal-bench-pro/blob/874af409da6aafebccbf3bc5bb41a2fa4d78784d/symbolic-ode-solution-chemical-reaction/environment/Dockerfile"
+      },
+      "source_sha256": {
+        "metadata": "aadd0d854933c3b519f8744da9933bcd035c8d286c779c9d13238f37c8707fdc",
+        "instruction": "0c393977e73d2cea7c837bd4e3fb0d7af71275c441574bbf2871a7a5d3da9a79",
+        "environment": "780608f6c3074e686f7d284b1db4b0f17240aba2f107ac5052cbfafb04a10a81"
+      }
+    },
+    {
+      "name": "implement-gmm-em-cli",
+      "difficulty": "hard",
+      "category": "machine-learning",
+      "selection_reason": "대규모 학습 모델 없이 수치 알고리즘·Python API·CLI·JSON 산출물을 함께 요구하는 기계학습 작업이다.",
+      "environment": {
+        "build_timeout_sec": 600.0,
+        "cpus": 1,
+        "memory_mb": 2048,
+        "storage_mb": 10240,
+        "gpus": 0,
+        "base_image": "skylensage-registry.cn-hangzhou.cr.aliyuncs.com/instances/1124:t-bench-python-3-13",
+        "dependencies": [
+          "Python 3.13 base image",
+          "numpy"
+        ],
+        "notes": "PyPI 접근 필요. NumPy 버전은 원본 Dockerfile에서 고정되지 않음. 입력 데이터 내용은 선정 과정에서 읽지 않음.",
+        "verification_status": "metadata_and_dockerfile_review_only",
+        "image_pull_status": "NOT_RUN",
+        "build_status": "NOT_RUN",
+        "task_run_status": "NOT_RUN"
+      },
+      "timeouts": {
+        "agent_sec": 3600.0,
+        "verifier_sec": 360.0
+      },
+      "sources": {
+        "metadata": "https://github.com/alibaba/terminal-bench-pro/blob/874af409da6aafebccbf3bc5bb41a2fa4d78784d/implement-gmm-em-cli/task.toml",
+        "instruction": "https://github.com/alibaba/terminal-bench-pro/blob/874af409da6aafebccbf3bc5bb41a2fa4d78784d/implement-gmm-em-cli/instruction.md",
+        "environment": "https://github.com/alibaba/terminal-bench-pro/blob/874af409da6aafebccbf3bc5bb41a2fa4d78784d/implement-gmm-em-cli/environment/Dockerfile"
+      },
+      "source_sha256": {
+        "metadata": "394574270022eb2bff8acf6e37e5a89a547399454a5ef9e80c094e325c0252ac",
+        "instruction": "e5ac762f34798e61eb2139cf0fef4d3607ffce6235f44ad846a21c6679b6854b",
+        "environment": "1100af407a3d596fd37ba306db253ab8ecacbb80340085ae79815d538354f4d0"
+      }
+    },
+    {
+      "name": "implement-nonogram-puzzle-solver",
+      "difficulty": "hard",
+      "category": "games",
+      "selection_reason": "게임 분야의 제약 충족·해 없음·잘못된 입력 처리를 포함하며 GPU나 외부 게임 서비스가 필요하지 않다.",
+      "environment": {
+        "build_timeout_sec": 600.0,
+        "cpus": 1,
+        "memory_mb": 2048,
+        "storage_mb": 10240,
+        "gpus": 0,
+        "base_image": "skylensage-registry.cn-hangzhou.cr.aliyuncs.com/instances/1124:t-bench-python-3-13",
+        "dependencies": [
+          "Python 3.13 base image"
+        ],
+        "notes": "추가 패키지 설치 없음. 퍼즐 입력은 이미지에 복사됨. puzzles 데이터 내용은 읽지 않음.",
+        "verification_status": "metadata_and_dockerfile_review_only",
+        "image_pull_status": "NOT_RUN",
+        "build_status": "NOT_RUN",
+        "task_run_status": "NOT_RUN"
+      },
+      "timeouts": {
+        "agent_sec": 3600.0,
+        "verifier_sec": 360.0
+      },
+      "sources": {
+        "metadata": "https://github.com/alibaba/terminal-bench-pro/blob/874af409da6aafebccbf3bc5bb41a2fa4d78784d/implement-nonogram-puzzle-solver/task.toml",
+        "instruction": "https://github.com/alibaba/terminal-bench-pro/blob/874af409da6aafebccbf3bc5bb41a2fa4d78784d/implement-nonogram-puzzle-solver/instruction.md",
+        "environment": "https://github.com/alibaba/terminal-bench-pro/blob/874af409da6aafebccbf3bc5bb41a2fa4d78784d/implement-nonogram-puzzle-solver/environment/Dockerfile"
+      },
+      "source_sha256": {
+        "metadata": "d579dcc4153b870405b970b6ec1dff5da3aef31bcc459aaebc0f0c3db935c281",
+        "instruction": "a9edfc6ce32913c8045e1bc40b582f0a0c75736cddc8729e3483d45d7136ef22",
+        "environment": "930098eb62c6e0af1cfd785382a006da40390dd8146ab40f9031501a256763f7"
+      }
+    },
+    {
+      "name": "create-valid-message-enc-file",
+      "difficulty": "hard",
+      "category": "security",
+      "selection_reason": "보안 분야의 로컬 프로그램 인터페이스 분석과 바이너리 파일 생성을 포함하며 외부 서비스나 실제 자격증명이 필요하지 않다.",
+      "environment": {
+        "build_timeout_sec": 600.0,
+        "cpus": 1,
+        "memory_mb": 2048,
+        "storage_mb": 10240,
+        "gpus": 0,
+        "base_image": "skylensage-registry.cn-hangzhou.cr.aliyuncs.com/instances/1124:t-bench-ubuntu-24-04",
+        "dependencies": [
+          "Ubuntu 24.04 base image",
+          "gcc",
+          "make",
+          "libc6-dev"
+        ],
+        "notes": "apt 저장소 접근 및 빌드 중 C 컴파일 필요. 암호화 소스와 메시지 내용은 선정 과정에서 읽지 않음.",
+        "verification_status": "metadata_and_dockerfile_review_only",
+        "image_pull_status": "NOT_RUN",
+        "build_status": "NOT_RUN",
+        "task_run_status": "NOT_RUN"
+      },
+      "timeouts": {
+        "agent_sec": 3600.0,
+        "verifier_sec": 360.0
+      },
+      "sources": {
+        "metadata": "https://github.com/alibaba/terminal-bench-pro/blob/874af409da6aafebccbf3bc5bb41a2fa4d78784d/create-valid-message-enc-file/task.toml",
+        "instruction": "https://github.com/alibaba/terminal-bench-pro/blob/874af409da6aafebccbf3bc5bb41a2fa4d78784d/create-valid-message-enc-file/instruction.md",
+        "environment": "https://github.com/alibaba/terminal-bench-pro/blob/874af409da6aafebccbf3bc5bb41a2fa4d78784d/create-valid-message-enc-file/environment/Dockerfile"
+      },
+      "source_sha256": {
+        "metadata": "c798c3b84654429a903b0e9eb6199ca0a24bed83046d1f5aa3d1686ecc7dab97",
+        "instruction": "adea3d17618d3c97bdf00094da66d6343e334843a36efc33a7a7b006884f924d",
+        "environment": "234d4e042d52196c0eaccfadc5c79e3bc94ec24d613c913d66ca09cfa3946f37"
+      }
+    }
+  ],
+  "limitations": [
+    "난이도와 category는 고정 커밋의 원본 metadata 값을 유지했다. 실행 난이도를 새로 측정하지 않았다.",
+    "모든 선택 문제의 원본 리소스 선언은 CPU 1, RAM 2048 MB, storage 10240 MB, GPU 0이다. 실제 빌드 시간·이미지 크기·최대 메모리는 측정하지 않았다.",
+    "중국 지역 Aliyun 이미지 레지스트리에 접근해야 한다. 이미지 태그는 digest로 고정되어 있지 않아 Git 커밋 고정만으로 완전한 환경 재현을 보장하지 않는다.",
+    "ARM64 지원, 에뮬레이션, 패키지 설치 및 이미지 pull/build는 아직 확인하지 않았다.",
+    "모델 실행 자원과 API 비용은 문제 컨테이너의 CPU/RAM 선언에 포함되지 않는다.",
+    "README에 Apache 2.0 배지가 있으나 해당 커밋에 LICENSE/COPYING/NOTICE 파일을 발견하지 못했다. 이 manifest는 원본 instruction/environment/solution/tests를 재배포하지 않는다."
+  ],
+  "evaluation_integrity": {
+    "read": "task.toml; instruction.md; environment/Dockerfile; file paths; root README for provenance/license",
+    "not_read": [
+      "solution/**",
+      "tests/**",
+      "environment fixture/source/expected-output contents"
+    ],
+    "actual_evaluation_performed": false
+  }
+}

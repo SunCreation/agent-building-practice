@@ -1,6 +1,0 @@
-.venv/
-.harness/
-workspace/
-__pycache__/
-*.py[cod]
-.env
