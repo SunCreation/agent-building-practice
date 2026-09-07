@@ -42,7 +42,7 @@ def directory(pid):
 
 
 def load_project(pid):
-    return json.loads((directory(pid) / "project.json").read_text())
+    return json.loads((directory(pid) / "project.json").read_text(encoding="utf-8"))
 
 
 @asynccontextmanager
@@ -105,7 +105,7 @@ async def index():
 
 @app.get("/api/projects")
 async def projects():
-    return [json.loads(p.read_text()) for p in sorted(WORKSPACE.glob("*/project.json"))]
+    return [json.loads(p.read_text(encoding="utf-8")) for p in sorted(WORKSPACE.glob("*/project.json"))]
 
 
 @app.post("/api/projects")
@@ -130,7 +130,7 @@ async def sample():
 @app.get("/api/projects/{pid}")
 async def project(pid: str):
     path = directory(pid)
-    return {"project": load_project(pid), "storyboard": json.loads((path / "storyboard.json").read_text()) if (path / "storyboard.json").exists() else None, "files": sorted(p.name for p in (path / "exports").glob("*") if p.is_file()), "jobs": [j for j in JOBS.values() if j["project_id"] == pid]}
+    return {"project": load_project(pid), "storyboard": json.loads((path / "storyboard.json").read_text(encoding="utf-8")) if (path / "storyboard.json").exists() else None, "files": sorted(p.name for p in (path / "exports").glob("*") if p.is_file()), "jobs": [j for j in JOBS.values() if j["project_id"] == pid]}
 
 
 async def execute(job, data):
@@ -142,7 +142,7 @@ async def execute(job, data):
         job["events"] = job["events"][-100:]
     try:
         async with asyncio.timeout(300):
-            story = json.loads((path / "storyboard.json").read_text()) if (path / "storyboard.json").exists() else None
+            story = json.loads((path / "storyboard.json").read_text(encoding="utf-8")) if (path / "storyboard.json").exists() else None
             if data.action != "render":
                 emit(f"engine={project['engine']} / {'resume' if project['session_id'] else 'new session'}")
                 if project["engine"] == "demo":
@@ -159,10 +159,10 @@ async def execute(job, data):
                     prompt = make_prompt(project, story if data.action == "revise" else None, data.card_id, data.instruction)
                     skill = ROOT / "skills/card-news-editor/SKILL.md"
                     if skill.exists():
-                        prompt = skill.read_text() + "\n\n" + prompt
+                        prompt = skill.read_text(encoding="utf-8") + "\n\n" + prompt
                     reference = ROOT / "skills/card-news-editor/references/editorial-decisions.md"
                     if reference.exists():
-                        prompt = reference.read_text() + "\n\n" + prompt
+                        prompt = reference.read_text(encoding="utf-8") + "\n\n" + prompt
                     text, session = await run_engine(project["engine"], prompt, project["session_id"], path, emit)
                     # Persist the actual engine session even if editorial validation fails.
                     project["session_id"] = session
@@ -201,12 +201,14 @@ async def start(pid: str, data: JobInput):
     path = directory(pid)
     if data.action not in {"generate", "revise", "render"}:
         raise HTTPException(400, "Unknown action")
+    if data.action == "generate" and (path / "storyboard.json").exists():
+        raise HTTPException(409, "A storyboard already exists; revise it or create a new project")
     if any(j["project_id"] == pid and j["status"] in {"queued", "running", "cancelling"} for j in JOBS.values()):
         raise HTTPException(409, "A job is already active in this project")
     if data.action in {"revise", "render"} and not (path / "storyboard.json").exists():
         raise HTTPException(400, "Generate a storyboard first")
     if data.action == "revise":
-        story = json.loads((path / "storyboard.json").read_text())
+        story = json.loads((path / "storyboard.json").read_text(encoding="utf-8"))
         if data.card_id not in [c["id"] for c in story["cards"]] or not data.instruction.strip():
             raise HTTPException(400, "Select a card and enter a revision")
     jid = uuid.uuid4().hex

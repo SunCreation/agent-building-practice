@@ -32,6 +32,12 @@ class FakeClient:
 
 
 class HarnessTests(unittest.TestCase):
+    def directory_link(self, path):
+        try:
+            path.symlink_to(self.root, target_is_directory=True)
+        except OSError as error:
+            self.skipTest(f"이 환경에서 심볼릭 링크를 만들 수 없습니다: {type(error).__name__}")
+
     def setUp(self):
         self.temp = TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
@@ -65,12 +71,12 @@ class HarnessTests(unittest.TestCase):
     def test_denied_write_preserves_original(self):
         result = self.tools.execute("write_file", '{"path":"note.txt","content":"수정"}')
         self.assertFalse(result["ok"])
-        self.assertIn("금요일", (self.workspace / "note.txt").read_text())
+        self.assertIn("금요일", (self.workspace / "note.txt").read_text(encoding="utf-8"))
 
     def test_path_escape_hidden_file_and_symlink_are_rejected(self):
         secret = self.root / "secret.txt"
         secret.write_text("private")
-        (self.workspace / "link").symlink_to(self.root, target_is_directory=True)
+        self.directory_link(self.workspace / "link")
         for path in ["../secret.txt", str(secret), ".env", "link/secret.txt"]:
             with self.subTest(path=path):
                 result = self.tools.execute("read_file", json.dumps({"path": path}))
@@ -78,11 +84,17 @@ class HarnessTests(unittest.TestCase):
         self.assertNotIn("link/secret.txt", self.tools.list_files()["files"])
 
     def test_approval_time_symlink_change_is_rejected(self):
+        probe = self.workspace / "link-probe"
+        self.directory_link(probe)
+        probe.unlink()
         def change_path(_):
             (self.workspace / "sub").symlink_to(self.root, target_is_directory=True)
             return True
         tools = WorkspaceTools(self.workspace, change_path)
-        self.assertFalse(tools.execute("write_file", '{"path":"sub/escaped.txt","content":"x"}')["ok"])
+        result = tools.execute("write_file", '{"path":"sub/escaped.txt","content":"x"}')
+        self.assertTrue((self.workspace / "sub").is_symlink())
+        self.assertFalse(result["ok"])
+        self.assertIn("심볼릭 링크", result["error"])
         self.assertFalse((self.root / "escaped.txt").exists())
 
     def test_call_budget_skips_extra_call_and_keeps_protocol_complete(self):
@@ -136,7 +148,7 @@ class HarnessTests(unittest.TestCase):
         self.assertFalse(red["ok"])
         self.assertIn("FAILED (failures=2)", red["output"])
         path = target / "budget.py"
-        corrected = path.read_text().replace("people * (per_person + venue)", "people * per_person + venue")
+        corrected = path.read_text(encoding="utf-8").replace("people * (per_person + venue)", "people * per_person + venue")
         self.assertTrue(tools.execute("write_file", json.dumps({"path": "budget.py", "content": corrected}))["ok"])
         green = tools.execute("run_tests", '{}')
         self.assertTrue(green["ok"], green)

@@ -13,8 +13,8 @@ def send(**event):
 
 async def main():
     request_path = Path(sys.argv[1])
-    request = json.loads(request_path.read_text())
-    options = ClaudeAgentOptions(cwd=str(request_path.parent), tools=[], setting_sources=[], mcp_servers={}, max_turns=3, resume=request["session_id"], model=os.environ.get("STUDIO_CLAUDE_MODEL"))
+    request = json.loads(request_path.read_text(encoding="utf-8"))
+    options = ClaudeAgentOptions(cwd=str(request_path.parent), tools=[], setting_sources=[], mcp_servers={}, strict_mcp_config=True, max_turns=3, resume=request["session_id"], model=os.environ.get("STUDIO_CLAUDE_MODEL"))
     async with ClaudeSDKClient(options=options) as client:
         await client.query(request["prompt"])
         async for message in client.receive_response():

@@ -4,6 +4,7 @@ import json
 import os
 import signal
 import sys
+import uuid
 from pathlib import Path
 
 
@@ -69,8 +70,14 @@ async def run_process(argv, cwd, env, emit, parse):
 async def run_engine(engine, prompt, session_id, cwd, emit):
     env = os.environ.copy()
     if engine == "opencode":
-        env["OPENCODE_CONFIG_CONTENT"] = json.dumps({"permission": {"*": "deny"}, "mcp": {}})
-        argv = ["opencode", "run", "--pure", "--format", "json"]
+        # A fresh agent name avoids inheriting the user's build-agent permissions.
+        agent_name = "card-news-" + uuid.uuid4().hex
+        env["OPENCODE_CONFIG_CONTENT"] = json.dumps({
+            "permission": {"*": "deny"}, "mcp": {},
+            "agent": {agent_name: {"mode": "primary", "description": "Card-news JSON editor",
+                                    "permission": {"*": "deny"}}},
+        })
+        argv = ["opencode", "run", "--pure", "--format", "json", "--agent", agent_name]
         if session_id:
             argv += ["--session", session_id]
         if env.get("STUDIO_OPENCODE_MODEL"):

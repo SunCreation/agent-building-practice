@@ -212,3 +212,19 @@ API 키나 Ollama 없이 실행할 수 있습니다. `FakeClient`는 테스트 �
 - [OpenAI Python SDK](https://github.com/openai/openai-python): 클라이언트와 오류·타임아웃 설정.
 - [Ollama OpenAI 호환 API](https://docs.ollama.com/api/openai-compatibility): 지원 경로와 제한.
 - [Ollama 도구 호출](https://docs.ollama.com/capabilities/tool-calling): 도구 호출 지원 모델과 실행 흐름.
+
+## 핵심 연결부 직접 구현
+
+완성본을 비교 기준으로 보존하고, 두 함수가 비어 있는 별도 작업본을 만들 수 있습니다.
+
+> 제공된 도구로 구현 작업본을 만들고, 도구 실행 연결부와 모델 호출 루프를 직접 구현하자.
+
+<details><summary>작업본 생성</summary>
+
+```sh
+uv run python prepare_exercise.py ../my-agent-harness
+```
+
+생성된 폴더의 `EXERCISE.md`를 읽고 `uv sync --locked`로 준비합니다. `WorkspaceTools.execute`와 `core.run_agent`를 작성합니다. 경로 검사·승인·개별 도구·세션 저장은 제공되며, 빈 연결부는 미구현 오류를 내도록 되어 있습니다. 작성 전 관련 테스트 실패는 예상된 상태이고, 작성 후 같은 12개 테스트와 실제 모델 실행으로 확인합니다. 기존 폴더를 덮어쓰지 않습니다.
+
+</details>

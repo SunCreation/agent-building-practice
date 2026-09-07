@@ -53,6 +53,8 @@ class StudioTests(unittest.TestCase):
             pid=r.json()['id']
             self.assertEqual(client.get(f'/api/projects/{pid}/files/secret.txt').status_code,404)
             self.assertEqual(client.post(f'/api/projects/{pid}/jobs',json={"action":"revise","card_id":"c1","instruction":"hi"},headers={"X-Studio-Request":"1"}).status_code,400)
+            app.save(app.directory(pid) / "storyboard.json", self.story)
+            self.assertEqual(client.post(f'/api/projects/{pid}/jobs',json={"action":"generate"},headers={"X-Studio-Request":"1"}).status_code,409)
 
     def test_queued_cancellation(self):
         async def check():
@@ -78,7 +80,7 @@ class StudioTests(unittest.TestCase):
                 for _ in range(100):
                     if marker.exists():break
                     await asyncio.sleep(.01)
-                pid=int(marker.read_text())
+                pid=int(marker.read_text(encoding="utf-8"))
                 task.cancel()
                 with self.assertRaises(asyncio.CancelledError):await task
                 with self.assertRaises(ProcessLookupError):os.kill(pid,0)
