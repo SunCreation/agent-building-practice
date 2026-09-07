@@ -19,6 +19,7 @@
 | DECISIONS.md | 내가 선택한 내용과 이유, 미룬 사항 |
 | INTERFACES.md | 입력·출력·오류·상태의 약속 |
 | ACCEPTANCE.md | 완성 여부를 판정할 시나리오와 실제 증거 |
+| TROUBLESHOOTING.md | 실패 증상별 확인 순서와 AI에게 전달할 최소 재현 기록 |
 | IMPLEMENTATION_PLAN.md | 가장 작은 첫 연결부터 기능을 쌓는 순서 |
 | AGENTS.md / CLAUDE.md | AI가 질문하고 합의를 기록하는 프로젝트 지침 |
 | examples/spec-example.md | 모호한 문장을 검증 가능한 요구로 바꾸는 예 |
@@ -31,4 +32,4 @@ OpenCode는 프로젝트 AGENTS.md를 읽습니다. Claude Code는 CLAUDE.md에�
 - [OpenCode 프로젝트 규칙](https://opencode.ai/docs/rules/)
 - [Claude Code 메모리와 파일 가져오기](https://code.claude.com/docs/en/memory)
 
-[기존 Python 구현](https://github.com/SunCreation/agent-building-practice/tree/main/agent-harness-practice)은 설계를 비교하는 선택 참고 자료입니다. 그 프로젝트의 빈칸 코드 실습을 수행할 필요는 없습니다. 이 키트는 실행 프로그램이나 API 키를 포함하지 않습니다.
+이 키트는 실행 프로그램이나 API 키를 포함하지 않습니다. 구현 중 막히면 [실패 진단 안내](TROUBLESHOOTING.md)의 증상 표와 기록 양식을 사용합니다.
