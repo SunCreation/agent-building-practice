@@ -1,0 +1,9 @@
+[project]
+name = "agent-harness-practice"
+version = "0.1.0"
+description = "A readable tool-calling harness with OpenAI and Ollama"
+requires-python = ">=3.11"
+dependencies = ["openai>=2.0,<3"]
+
+[tool.uv]
+package = false
