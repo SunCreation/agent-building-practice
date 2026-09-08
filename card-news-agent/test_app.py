@@ -6,7 +6,7 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import AsyncMock, patch
+from unittest.mock import ANY, AsyncMock, patch
 
 from fastapi.testclient import TestClient
 import app as studio
@@ -43,6 +43,24 @@ class AppTests(unittest.TestCase):
 
     def post(self, project, suffix, payload=None):
         return self.client.post(f"/api/projects/{project['id']}/{suffix}", json=payload, headers=HEADERS)
+
+    def test_progress_is_persisted_before_agent_finishes(self):
+        project = self.project("running", stage="plan")
+        async def streaming_ask(*args, on_progress=None, **kwargs):
+            await on_progress("웹 검색 시작: 카드뉴스")
+            saved = studio.load(project["id"])
+            self.assertEqual(saved["status"], "running")
+            self.assertEqual(saved["events"][-1]["message"], "웹 검색 시작: 카드뉴스")
+            return {"session_id": "test-session", "text": '{"ok": true}'}
+        with patch.object(studio, "ask", streaming_ask):
+            result = asyncio.run(studio.agent(project, "test"))
+        self.assertEqual(result, {"ok": True})
+
+    def test_started_stage_has_its_own_clock(self):
+        project = self.project()
+        response = self.post(project, "research", {})
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.json()["stage_started_at"])
 
     def test_cross_origin_and_nonlocal_host_rejected(self):
         self.assertEqual(self.client.get("/api/projects", headers={"origin": "https://evil.example"}).status_code, 403)
@@ -118,7 +136,7 @@ class AppTests(unittest.TestCase):
                     (image.parent / "image-provenance.json").write_text(json.dumps(provenance))
                 with patch.object(studio, "generate_image", new_callable=AsyncMock, return_value=image) as generate, patch.object(studio, "make_artifacts", new_callable=AsyncMock) as artifacts:
                     asyncio.run(studio.produce(project))
-                    generate.assert_awaited_once_with("새 배경", image.parent)
+                    generate.assert_awaited_once_with("새 배경", image.parent, on_progress=ANY)
                     artifacts.assert_awaited_once_with(project, image)
 
     def test_produce_reuses_matching_verified_image(self):

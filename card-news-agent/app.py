@@ -142,10 +142,16 @@ def validate_story(s):
     return s
 
 
+def progress_callback(p):
+    async def report(message):
+        event(p, message)
+    return report
+
+
 async def agent(p, prompt):
     if p.get('last_error'):
         prompt = '이전 시도 실패를 해결해서 다시 진행하라: ' + p['last_error'] + '\n' + prompt
-    result = await ask(prompt, path(p['id']), p.get('session_id'), ENGINE)
+    result = await ask(prompt, path(p['id']), p.get('session_id'), ENGINE, on_progress=progress_callback(p))
     p['session_id'] = result['session_id']; save(p)
     successful = result.get('successful_tools', [])
     required = {'research': 'WebSearch', 'deepen': 'WebFetch'}.get(p.get('stage'))
@@ -242,7 +248,7 @@ async def produce(p):
         pass
     if not verified:
         event(p, 'Antigravity CLI에 이미지 생성을 요청했습니다. 실제 파일을 기다립니다.')
-        image = await generate_image(p['story'].get('image_prompt', 'AI 기술 추상 배경, 아이보리와 코발트, 위쪽 글자 여백, 글자 없음'), path(p['id']))
+        image = await generate_image(p['story'].get('image_prompt', 'AI 기술 추상 배경, 아이보리와 코발트, 위쪽 글자 여백, 글자 없음'), path(p['id']), on_progress=progress_callback(p))
     event(p, '이미지 파일을 확인했습니다. 한국어 글자를 별도로 배치하고 크기·잘림을 검사합니다.')
     await make_artifacts(p, image)
 
@@ -279,7 +285,7 @@ def start(p, stage):
     if p['id'] in TASKS and not TASKS[p['id']].done():
         raise HTTPException(409, '이미 진행 중인 작업입니다.')
     p['last_error'] = p.get('error')
-    p.update(status='running', stage=stage, error=None)
+    p.update(status='running', stage=stage, error=None, stage_started_at=now())
     save(p)
     TASKS[p['id']] = asyncio.create_task(work(p['id'], stage))
     return p
