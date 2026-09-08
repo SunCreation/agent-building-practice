@@ -1,0 +1,99 @@
+{
+  "title": "구글 WeatherNext 3, 날씨 예보가 매시간 갱신된다",
+  "audience": "일반 AI 뉴스 독자",
+  "hook_candidates": [
+    "6시간에 한 번이던 날씨 예보가 매시간으로 바뀌었다",
+    "AI가 물리 예보 모델을 앞섰다, 다만 아직 그 데이터로 돌아간다"
+  ],
+  "hook_reason": "1번을 선정했다. 검증된 사실 하나(전 지구 예보 초기화 주기가 6시간에서 1시간으로 바뀜)만으로 성립하고, 일반 독자가 매일 보는 날씨 앱과 바로 연결돼 과장 없이 후킹된다. 2번은 반전 구조가 더 강하지만 '앞섰다'의 근거인 Brightband Operational WeatherBench 순위를 리더보드 원본으로 확인하지 못해 조사 단계에서 미확인으로 분류한 항목이다. 미확인 정보를 표제로 올리면 카드뉴스 전체의 신뢰도가 흔들리므로 제외했다. 대신 2번이 담으려던 '그런데 완전히 독립하진 않았다'는 반전은 4번 카드에서 논문 원문으로 확인된 범위 안에서 다룬다.",
+  "image_prompt": "추상 삽화 스타일의 일관된 배경. 짙은 남색에서 청록색으로 이어지는 부드러운 그라데이션 위에 등고선과 격자 곡선이 흐르는 미니멀 기하 패턴. 상단 40%는 텍스트 배치를 위해 비워 둔 여백. 종이 질감의 은은한 노이즈. 사진이 아닌 평면 벡터풍 일러스트. 글자·숫자·로고·워터마크 없음. 실제 위성사진이나 보도사진처럼 보이지 않게 할 것.",
+  "sources": [
+    {
+      "id": "src-1",
+      "title": "Introducing WeatherNext 3, our most advanced and accurate global weather AI model (Google 공식 블로그, 2026-09-03)",
+      "url": "https://blog.google/innovation-and-ai/models-and-research/google-deepmind/introducing-weathernext-3/"
+    },
+    {
+      "id": "src-2",
+      "title": "WeatherNext 3: Increasing resolution and performance of global weather models with raw observations (arXiv:2609.03582)",
+      "url": "https://arxiv.org/html/2609.03582v1"
+    },
+    {
+      "id": "src-3",
+      "title": "WeatherNext 3 모델 사양 (Google for Developers)",
+      "url": "https://developers.google.com/weathernext/guides/models"
+    },
+    {
+      "id": "src-4",
+      "title": "Research and benchmarks (Google for Developers)",
+      "url": "https://developers.google.com/weathernext/guides/research"
+    },
+    {
+      "id": "src-5",
+      "title": "WeatherNext (Google DeepMind 제품 페이지)",
+      "url": "https://deepmind.google/science/weathernext/"
+    },
+    {
+      "id": "src-6",
+      "title": "Google's latest AI weather model gives you no excuse to forget your umbrella (TechCrunch, 2026-09-03)",
+      "url": "https://techcrunch.com/2026/09/03/googles-latest-ai-weather-model-gives-you-no-excuse-to-forget-your-umbrella/"
+    }
+  ],
+  "cards": [
+    {
+      "id": "card-1",
+      "headline": "날씨 예보가 매시간 갱신되기 시작했다",
+      "body": "구글 딥마인드와 구글 리서치가 2026년 9월 3일 기상 AI 모델 WeatherNext 3를 공개했다. 논문도 같은 날 함께 올라왔다. 이전 모델이 6시간마다 내놓던 전 지구 예보를 이제 하루 24번, 매시간 새로 계산한다.",
+      "source_ids": [
+        "src-1",
+        "src-2"
+      ],
+      "image_prompt": "짙은 남색에서 청록색 그라데이션 배경. 화면 아래쪽 중앙에서 잔잔한 동심원 파형이 바깥으로 퍼져 나가는 추상 형태. 얇은 선으로만 표현된 미니멀 기하 일러스트. 상단 40%는 비워 둔 여백. 평면 벡터풍, 사진 아님. 글자·숫자·로고 없음."
+    },
+    {
+      "id": "card-2",
+      "headline": "위성 영상을 직접 보고 배우는 모델",
+      "body": "이전 세대는 25km 격자에 6시간 간격이었다. WeatherNext 3는 정지궤도 위성 영상의 최신 12프레임을 직접 받아 쓴다. 해상도는 균일하지 않다. 관측소 기온·이슬점은 5km, 지표 변수는 10km, 상층 대기는 25km다.",
+      "source_ids": [
+        "src-1",
+        "src-2",
+        "src-3"
+      ],
+      "image_prompt": "같은 남색-청록 그라데이션 배경. 왼쪽의 성긴 격자가 오른쪽으로 가며 점점 촘촘해지는 추상 전환 패턴. 격자 칸이 잘게 쪼개지는 리듬만 기하학적으로 표현. 상단 40%는 비워 둔 여백. 평면 벡터풍, 사진 아님. 글자·숫자·로고 없음."
+    },
+    {
+      "id": "card-3",
+      "headline": "이미 검색과 지도에 들어가 있다",
+      "body": "구글 검색, Gemini 앱, 구글 지도에 이미 반영됐고 Maps Platform API와 Earth Engine, BigQuery로도 제공된다. 터빈 높이인 100m 풍속과 구름 분포, 일사량까지 내놔 풍력·태양광 발전량 예측에도 쓸 수 있다.",
+      "source_ids": [
+        "src-1",
+        "src-3"
+      ],
+      "image_prompt": "같은 남색-청록 그라데이션 배경. 하나의 원형 노드에서 여러 갈래의 부드러운 흐름선이 뻗어 나가 작은 원들에 닿는 추상 구성. 선은 가늘고 균일하게. 상단 40%는 비워 둔 여백. 평면 벡터풍, 사진 아님. 글자·숫자·로고 없음."
+    },
+    {
+      "id": "card-4",
+      "headline": "그런데 정부 데이터를 대체한 건 아니다",
+      "body": "논문에 따르면 초기 입력에 유럽중기예보센터(ECMWF)의 분석 데이터가 여전히 들어간다. 위성 영상은 이를 대체한 게 아니라 더해진 것이다. 15일 예보도 하루 24번이 아니라 4번뿐이고, 나머지 시간별 실행은 48시간까지만 본다.",
+      "source_ids": [
+        "src-2",
+        "src-3",
+        "src-6"
+      ],
+      "image_prompt": "같은 남색-청록 그라데이션 배경. 반투명한 두 겹의 레이어가 어긋나게 겹쳐 있고 아래 레이어가 위를 떠받치는 구조의 추상 형태. 겹친 부분만 색이 짙어짐. 상단 40%는 비워 둔 여백. 평면 벡터풍, 사진 아님. 글자·숫자·로고 없음."
+    },
+    {
+      "id": "card-5",
+      "headline": "비 예보 오차 지표 CRPS, 최대 60% 개선",
+      "body": "CRPS는 확률 예측의 오차를 재는 지표다. 비 예보에서 예보 초반 CRPS가 위성 관측(IMERG) 기준 최대 60%, 레이더(MRMS) 기준 최대 30%, 우량계 기준 최대 10% 줄었다. 모두 구글 자체 평가다. 공식 예보·경보는 기상청을 확인하자. 원문 arXiv 2609.03582.",
+      "source_ids": [
+        "src-1",
+        "src-2",
+        "src-4",
+        "src-5"
+      ],
+      "image_prompt": "같은 남색-청록 그라데이션 배경. 흩어져 있던 작은 점들이 화면 중앙에서 하나의 가는 선으로 모여드는 추상 형태. 여백이 넉넉하고 차분한 구성. 상단 40%는 비워 둔 여백. 평면 벡터풍, 사진 아님. 글자·숫자·로고 없음."
+    }
+  ],
+  "researched_at": "2026-09-08T22:12:58+09:00"
+}

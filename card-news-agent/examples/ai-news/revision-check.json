@@ -1,0 +1,27 @@
+{
+  "card-1": {
+    "before_sha256": "754d3c35f705ab3ee323eacf3a7fbc18659477edfdd1b8f8244c665e9d0161bd",
+    "after_sha256": "754d3c35f705ab3ee323eacf3a7fbc18659477edfdd1b8f8244c665e9d0161bd",
+    "unchanged": true
+  },
+  "card-2": {
+    "before_sha256": "2cb4855e3465bf995efb763d4174aaf4871efc2d4c34168d180443fe72af460d",
+    "after_sha256": "2cb4855e3465bf995efb763d4174aaf4871efc2d4c34168d180443fe72af460d",
+    "unchanged": true
+  },
+  "card-3": {
+    "before_sha256": "84423586ff0f13d59f8ec45c32830c1e317ed5fa9aac160570f9a7364fffea1c",
+    "after_sha256": "84423586ff0f13d59f8ec45c32830c1e317ed5fa9aac160570f9a7364fffea1c",
+    "unchanged": true
+  },
+  "card-4": {
+    "before_sha256": "7a9de827e6ac979604c6ece99ccd13e6afd091fcbc3162628b32c063d1efcbed",
+    "after_sha256": "7a9de827e6ac979604c6ece99ccd13e6afd091fcbc3162628b32c063d1efcbed",
+    "unchanged": true
+  },
+  "card-5": {
+    "before_sha256": "941210288572e6c2c39ead9fdb04922e9f72e4ee110ac9fdf6a45ea6e9a2a140",
+    "after_sha256": "9fdb819858bf74bf8ea02f68ff75e2d3edffab15c5ff51090b321aa11f5aa71f",
+    "unchanged": false
+  }
+}

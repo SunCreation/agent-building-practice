@@ -88,3 +88,11 @@ agy -p '내장 generate_image 도구로 AI 소식을 설명하는 카드뉴스�
 | 내보내기 | 확정한 카드가 빠짐없이 같은 순서로 저장되고 출처와 조사 기준일이 남습니다. |
 
 > 내보낸 파일을 기준으로 누락, 글자 잘림, 출처, 날짜를 확인해 줘. 확인하지 못한 항목은 통과로 처리하지 말고 내가 확인할 부분을 알려 줘.
+
+### 실제 제작 결과 참고
+
+[2026년 9월 8일 실행 결과](https://github.com/SunCreation/agent-building-practice/tree/main/card-news-agent/examples/ai-news)는 ‘AI 최신소식’ 조사 후보 10개에서 WeatherNext 3를 고르고, 웹에서 일반 AI 뉴스 독자를 선택해 완성한 카드 5장입니다. [생성 결과 ZIP](https://github.com/SunCreation/agent-building-practice/releases/download/v5.1.0/ai-news-card-example.zip)에는 PNG와 원고·출처·이미지 생성 기록이 들어 있습니다. 이는 실행 당시의 예시이며 이후에도 최신 소식이라는 뜻은 아닙니다.
+
+![실제 앱의 카드 미리보기](https://raw.githubusercontent.com/SunCreation/agent-building-practice/main/card-news-agent/examples/screenshots/07-preview.png)
+
+이 실행에서는 마지막 카드의 수치 설명을 검토 후 수정했습니다. 수정하지 않은 4장 PNG가 그대로 유지되는 것까지 확인했습니다. 처음 조사에서 시간 제한에 걸렸던 과정과 실제 검증 범위는 [검증 기록](https://github.com/SunCreation/agent-building-practice/blob/main/card-news-agent/VALIDATION.md)에 남겼습니다.

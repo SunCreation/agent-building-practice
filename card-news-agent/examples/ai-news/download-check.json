@@ -1,0 +1,15 @@
+{
+  "status": 200,
+  "files": [
+    "card-1.png",
+    "card-2.png",
+    "card-3.png",
+    "card-4.png",
+    "card-5.png",
+    "cards.html",
+    "storyboard.json",
+    "sources.md",
+    "image-provenance.json"
+  ],
+  "sha256": "b630af41e88135d9e320e062ca64d8c142a020b96940f5f98823ffdb5d0b479b"
+}

@@ -13,3 +13,5 @@
 실행 엔진은 Claude Agent SDK, Claude CLI, OpenCode CLI 중 하나로 시작합니다. 이미지 생성에는 공식 Antigravity CLI `agy`를 사용합니다. 설치되어 있다는 것과 실제 로그인·검색·이미지 생성 권한이 있다는 것은 다릅니다. 사용할 계정에서 각 기능을 확인하세요.
 
 공식 사용법과 카드 형식 레퍼런스는 REFERENCES.md를 참고하세요.
+
+실행 가능한 [Python 참고 구현](https://github.com/SunCreation/agent-building-practice/tree/main/card-news-agent)과 [실제 실행 검증](https://github.com/SunCreation/agent-building-practice/blob/main/card-news-agent/VALIDATION.md)도 제공합니다. 이 참고 구현은 Claude CLI + Antigravity를 연결한 버전입니다.

@@ -4,6 +4,7 @@ PRD로 자신의 하네스를 만들거나, 기존 SDK·CLI를 연결해 사용�
 
 - [Harness Design Kit](harness-design-kit/README.md): 하네스 요구사항, 설계 질문, 언어·플랫폼 선택과 검증 시나리오.
 - [Python Harness Lab](harness-lab/README.md): Python 하네스 참고 구현. 최신 실습용 채점기는 [Agent Terminal Benchmark](https://github.com/SunCreation/agent-terminal-benchmark)를 사용합니다.
+- [Card News Agent](card-news-agent/README.md): 실제 실행 구현. Claude CLI의 웹 조사, 브라우저 후보·독자 선택, Antigravity 생성, PNG·ZIP과 부분 수정. [실제 검증 기록](card-news-agent/VALIDATION.md).
 - [Card News Workflow Kit](card-news-workflow-kit/README.md): **Day39 시작 자료**. 주제 조사 → 브라우저 후보 선택 → 독자·후킹 판단 → Antigravity 이미지 생성 → 검수·내보내기를 구현할 전체 PRD와 확인 목록입니다. 완성 앱이 아닌 설계 키트입니다.
 - [이전 Card News Studio](card-news-studio/README.md): 자료를 직접 제공하는 이전 예제입니다. 새 Day39의 검색·선택·Antigravity 워크플로 구현본이 아닙니다.
 
