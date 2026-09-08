@@ -78,6 +78,15 @@ class RenderingTests(unittest.TestCase):
                 self.assertEqual(set(archive.namelist()), set(names) - {"card-news.zip"})
                 self.assertIsNone(archive.testzip())
 
+    def test_card_specific_mapping_and_original_exports(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            paths={c['id']: IMAGE for c in STORY['cards']}
+            names=asyncio.run(render(copy.deepcopy(STORY),tmp,paths))
+            record=json.loads((Path(tmp)/'image-provenance.json').read_text())
+            self.assertEqual(len(record['images']),5)
+            self.assertIn('card-2-image.png',names)
+            with self.assertRaises(KeyError): html_document(STORY,{'card-1':IMAGE})
+
     def test_hidden_generated_image_is_rejected(self):
         with tempfile.TemporaryDirectory() as tmp:
             with patch.object(rendering, 'CSS', rendering.CSS + '.deep .art{display:none}'):

@@ -441,16 +441,16 @@ async def generate_image(prompt: str, cwd: str | Path,
     if target.exists() or target.is_symlink():
         target.rename(directory / ("background.previous-" + uuid.uuid4().hex + ".png"))
     call_id = uuid.uuid4().hex
+    started_at = time.time()
     instruction = (
-        "Use your built-in generate_image tool to create a new illustration. "
-        "Do not substitute SVG, code-drawn shapes, stock images, screenshots, or an existing image. "
-        "Save the generated PNG to this exact absolute path: " + str(target) + ". "
-        "If the image tool writes elsewhere, copy the generated file to that path. "
-        "No lettering or text in the image; leave room for text to be rendered separately. "
-        "Verify that the file exists and report its absolute path. If generation fails, report failure. "
-        "Only work within this job directory. Image brief:\n" + prompt
+        "Use your built-in generate_image tool to create a NEW editorial illustration. "
+        "Do not substitute SVG, code-drawn shapes, stock images, screenshots or existing images. "
+        "Use only the image generation tool; do not run terminal commands or copy files. "
+        "Return the exact absolute path of the newly generated image in your final response. "
+        "The application will import the generated artifact and render text separately. "
+        "No lettering, numbers, logos or text in the image. Image brief:\n" + prompt
     )
-    argv = ["agy", "-p", instruction, "--dangerously-skip-permissions",
+    argv = ["agy", "-p", instruction,
             "--output-format", "stream-json", "--mode", "accept-edits"]
     raw = await _run(argv, directory, call_id, on_progress) if on_progress else await _run(argv, directory, call_id)
     try:
@@ -467,6 +467,24 @@ async def generate_image(prompt: str, cwd: str | Path,
         if not isinstance(envelope, dict) or envelope.get("status") != "SUCCESS":
             reason = _failure_kind(str(envelope))
             raise RuntimeError("agy: " + reason + "; image generation did not report SUCCESS")
+        if not target.exists():
+            conversation = envelope.get('conversation_id', '')
+            try: uuid.UUID(conversation)
+            except (ValueError, TypeError, AttributeError):
+                raise RuntimeError('Image response is missing a valid generation conversation') from None
+            artifact_root = (Path.home() / '.gemini' / 'antigravity-cli' / 'brain' / conversation).resolve()
+            paths = re.findall(r'(/[^`\n"\s]+\.(?:png|jpg|jpeg|webp))', str(envelope.get('response', '')), re.I)
+            candidates = []
+            for value in dict.fromkeys(paths):
+                source = Path(value)
+                if source.is_symlink() or not source.is_file(): continue
+                if not source.resolve().is_relative_to(artifact_root) or source.stat().st_mtime < started_at - 2: continue
+                candidates.append(source)
+            if len(candidates) != 1:
+                raise RuntimeError('Could not identify one new image from this generation conversation')
+            with Image.open(candidates[0]) as generated:
+                generated.load()
+                generated.convert('RGB').save(target, format='PNG')
         if target.is_symlink() or not target.is_file() or target.resolve().parent != directory:
             raise RuntimeError("agy reported SUCCESS but background.png was not created in the job directory")
         with Image.open(target) as image:

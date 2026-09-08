@@ -126,28 +126,24 @@ class AppTests(unittest.TestCase):
         self.assertEqual(self.post(project, "retry").status_code, 200)
         self.assertEqual(studio.load(project["id"])["status"], "running")
 
-    def test_produce_regenerates_unverified_image(self):
-        for provenance in (None, {"generated": True, "sha256": "wrong"}, {"generated": False, "sha256": hashlib.sha256(b"existing PNG").hexdigest()}):
-            with self.subTest(provenance=provenance):
-                project = self.project("running", story={"image_prompt": "새 배경"})
-                image = studio.path(project["id"]) / "background.png"
-                image.write_bytes(b"existing PNG")
-                if provenance is not None:
-                    (image.parent / "image-provenance.json").write_text(json.dumps(provenance))
-                with patch.object(studio, "generate_image", new_callable=AsyncMock, return_value=image) as generate, patch.object(studio, "make_artifacts", new_callable=AsyncMock) as artifacts:
-                    asyncio.run(studio.produce(project))
-                    generate.assert_awaited_once_with("새 배경", image.parent, on_progress=ANY)
-                    artifacts.assert_awaited_once_with(project, image)
-
-    def test_produce_reuses_matching_verified_image(self):
-        project = self.project("running", story={"image_prompt": "새 배경"})
-        image = studio.path(project["id"]) / "background.png"
-        image.write_bytes(b"existing PNG")
-        (image.parent / "image-provenance.json").write_text(json.dumps({"generated": True, "sha256": hashlib.sha256(image.read_bytes()).hexdigest()}))
-        with patch.object(studio, "generate_image", new_callable=AsyncMock) as generate, patch.object(studio, "make_artifacts", new_callable=AsyncMock) as artifacts:
+    def test_card_images_follow_content_and_reuse_verified_outputs(self):
+        cards=[{'id':f'card-{i}','headline':f'주제 {i}','body':f'구체적인 내용 {i}'} for i in range(1,3)]
+        project=self.project('running',story={'cards':cards})
+        async def fake_generate(prompt,directory,**kwargs):
+            directory.mkdir(parents=True,exist_ok=True)
+            image=directory/'background.png';image.write_bytes(prompt.encode())
+            (directory/'image-provenance.json').write_text(json.dumps({'generated':True,'sha256':hashlib.sha256(image.read_bytes()).hexdigest()}))
+            return image
+        with patch.object(studio,'generate_image',side_effect=fake_generate) as generate, patch.object(studio,'make_artifacts',new_callable=AsyncMock):
             asyncio.run(studio.produce(project))
-            generate.assert_not_awaited()
-            artifacts.assert_awaited_once_with(project, image)
+            self.assertEqual(generate.await_count,2)
+            self.assertIn('구체적인 내용 1',generate.await_args_list[0].args[0])
+            asyncio.run(studio.produce(project))
+            self.assertEqual(generate.await_count,2)
+            project['story']['cards'][0]['body']='수정된 내용'
+            asyncio.run(studio.produce(project))
+            self.assertEqual(generate.await_count,3)
+        self.assertNotEqual(project['card_images']['card-1']['path'],project['card_images']['card-2']['path'])
 
     def test_overflow_repair_only_changes_failed_card(self):
         story = {"title": "AI 소식", "audience": "기획자", "sources": [{"id": "s1", "title": "원문", "url": "https://example.com/news"}], "cards": [

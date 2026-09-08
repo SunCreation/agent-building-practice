@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import base64
+import hashlib
 import html
 import json
 import re
@@ -34,6 +35,13 @@ footer{background:rgba(246,243,235,.95);padding:16px 18px;height:73px;bottom:40p
 .deep{color:#fff9ed}.deep::after{background:linear-gradient(to bottom,rgba(14,29,58,.95) 0%,rgba(14,29,58,.91) 48%,rgba(14,29,58,.8) 67%,rgba(14,29,58,.12) 87%,rgba(14,29,58,.04) 100%)}
 .deep .mark{color:#fff9ed}.deep .rule{background:#ffad75}.deep footer{background:rgba(14,29,58,.95)}
 .split .copy{height:880px}.close .copy{height:880px}
+.art{inset:auto 0 0;width:1080px;height:540px;object-fit:cover;object-position:center}
+.card::after,.deep::after{display:none}
+.copy,.cover .copy,.split .copy,.close .copy{top:130px;height:640px}
+.eyebrow{font-size:21px;max-height:60px}
+h1{font-size:58px;max-height:215px;margin:20px 0}.cover h1{font-size:64px;max-height:240px}
+p,.cover p{font-size:30px;line-height:1.5;max-width:none}.rule{margin-bottom:20px;height:6px}
+.deep{background:#102144}
 @media print{.card{break-after:page}}@page{size:1080px 1350px;margin:0}
 """
 
@@ -84,13 +92,14 @@ def png_dimensions(path: Path) -> tuple[int, int]:
 
 def html_document(story: dict, image_path: Path) -> str:
     validate_story(story)
-    png_dimensions(image_path)
-    image_uri = "data:image/png;base64," + base64.b64encode(image_path.read_bytes()).decode("ascii")
+    paths = {c['id']: Path(image_path[c['id']]) for c in story['cards']} if isinstance(image_path, dict) else {c['id']: Path(image_path) for c in story['cards']}
+    for file in paths.values(): png_dimensions(file)
     esc = html.escape
     cards = []
     styles = ["cover", "deep", "number", "split", "close"]
     for index, card in enumerate(story["cards"]):
         style = styles[index % len(styles)]
+        image_uri = "data:image/png;base64," + base64.b64encode(paths[card["id"]].read_bytes()).decode("ascii")
         refs = " · ".join(card["source_ids"]) or "출처: 함께 제공된 자료 참고"
         cards.append(f'''<article class="card {style}" id="{esc(card['id'])}">
 <header><span class="mark">TOPIC / BRIEF</span><span>{index + 1:02d} / {len(story['cards']):02d}</span></header>
@@ -103,7 +112,8 @@ def html_document(story: dict, image_path: Path) -> str:
 
 async def render(story: dict, directory: str | Path, image_path: str | Path) -> list[str]:
     """Render only after validating every card; reject overflowing text explicitly."""
-    directory, image_path = Path(directory), Path(image_path)
+    directory = Path(directory)
+    image_path = {k: Path(v) for k,v in image_path.items()} if isinstance(image_path, dict) else Path(image_path)
     document = html_document(story, image_path)
     directory.mkdir(parents=True, exist_ok=True)
     async with async_playwright() as p:
@@ -122,7 +132,7 @@ async def render(story: dict, directory: str | Path, image_path: str | Path) -> 
                 problems = await loc.evaluate("""e => {
                     const issues=[];
                     const art=e.querySelector('.art'), style=getComputedStyle(art), a=art.getBoundingClientRect(), r=e.getBoundingClientRect();
-                    if(style.display==='none'||style.visibility==='hidden'||Number(style.opacity)<.9||a.width<r.width-1||a.height<r.height-1)
+                    if(style.display==='none'||style.visibility==='hidden'||Number(style.opacity)<.9||a.width<r.width-1||a.height<539)
                         issues.push('generated image must cover the card');
                     for(const item of e.querySelectorAll('[data-check]')) {
                         if(item.scrollHeight > item.clientHeight + 1 || item.scrollWidth > item.clientWidth + 1)
@@ -149,12 +159,21 @@ async def render(story: dict, directory: str | Path, image_path: str | Path) -> 
     sources += "\n\n카드의 배경은 내용을 설명하기 위한 생성 이미지이며 실제 사건의 사진이 아닙니다.\n"
     (directory / "sources.md").write_text(sources, encoding="utf-8")
     files = [f"{c['id']}.png" for c in story["cards"]] + ["cards.html", "storyboard.json", "sources.md"]
-    provenance = image_path.parent / "image-provenance.json"
-    if provenance.is_file():
-        target = directory / "image-provenance.json"
-        if provenance.resolve() != target.resolve():
-            shutil.copyfile(provenance, target)
-        files.append("image-provenance.json")
+    if isinstance(image_path, dict):
+        records=[]
+        for cid, image in image_path.items():
+            filename=f"{cid}-image.png"
+            shutil.copyfile(image, directory/filename); files.append(filename)
+            provenance=image.parent/'image-provenance.json'
+            records.append({'card_id':cid,'file':filename,'sha256':hashlib.sha256(image.read_bytes()).hexdigest(), 'generation':json.loads(provenance.read_text()) if provenance.is_file() else None})
+        (directory/'image-provenance.json').write_text(json.dumps({'images':records},ensure_ascii=False,indent=2))
+        files.append('image-provenance.json')
+    else:
+        provenance = image_path.parent / "image-provenance.json"
+        if provenance.is_file():
+            target = directory / "image-provenance.json"
+            if provenance.resolve() != target.resolve(): shutil.copyfile(provenance, target)
+            files.append("image-provenance.json")
     with zipfile.ZipFile(directory / "card-news.zip", "w", compression=zipfile.ZIP_DEFLATED) as archive:
         for filename in files:
             # Fixed timestamps avoid meaningless archive changes on repeated runs.

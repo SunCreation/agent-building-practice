@@ -257,8 +257,8 @@ async def plan(p):
     event(p, '카드 구성: 선정한 후킹을 첫 카드에 적용하고 뒤 카드에서 궁금증을 해소합니다.')
     prompt = f'''사용자 독자 선택: {json.dumps(p['answer'],ensure_ascii=False)}.
 확인된 조사자료: {json.dumps(p['research'],ensure_ascii=False)}.
-이 자료로 한국어 카드뉴스를 만들어라. 검증된 사실만, 후킹은 과장금지. 5장, 카드별 메시지1개, 표지→변화→활용→조건한계→요약출처. 제목42자이내 본문180자이내. 후킹 후보2개와 선정이유. 첫 카드는 날짜·출시 사실의 요약이 아니라 선택한 독자의 고민, 뜻밖의 대비, 구체적인 궁금증 중 하나로 다음 장을 넘길 이유를 제시하라. 근거 없는 이익·성능 약속이나 선정적 과장은 금지한다. 후보 중 하나를 selected_hook으로 선택하고 card-1의 headline에 한 글자도 바꾸지 말고 사용하라. 첫 카드 본문은 후킹의 질문이나 기대를 구체화하고 다음 카드가 이를 해소하게 구성하라. hook_reason에는 이 독자가 관심을 가질 이유와 근거를 설명하라. 이미지는 글자없는 추상삽화, 실제보도사진처럼꾸미지마라. 아직 파일생성은 하지마라. 최종 JSON만:
-{{"title":"...","audience":"...","hook_candidates":["...","..."],"selected_hook":"후킹 후보 중 선택한 문구","hook_reason":"...","image_prompt":"카드뉴스 전체에 사용할 일관된 배경, 위쪽 글자 여백, 글자 로고 없음","sources":[{{"id":"src-1","title":"...","url":"https://..."}}],"cards":[{{"id":"card-1","headline":"...","body":"...","source_ids":["src-1"],"image_prompt":"..."}}]}}'''
+이 자료로 한국어 카드뉴스를 만들어라. 검증된 사실만, 후킹은 과장금지. 5장, 카드별 메시지1개, 표지→변화→활용→조건한계→요약출처. 제목42자이내 본문180자이내. 후킹 후보2개와 선정이유. 첫 카드는 날짜·출시 사실의 요약이 아니라 선택한 독자의 고민, 뜻밖의 대비, 구체적인 궁금증 중 하나로 다음 장을 넘길 이유를 제시하라. 근거 없는 이익·성능 약속이나 선정적 과장은 금지한다. 후보 중 하나를 selected_hook으로 선택하고 card-1의 headline에 한 글자도 바꾸지 말고 사용하라. 첫 카드 본문은 후킹의 질문이나 기대를 구체화하고 다음 카드가 이를 해소하게 구성하라. hook_reason에는 이 독자가 관심을 가질 이유와 근거를 설명하라. 각 카드 image_prompt는 해당 카드의 구체적인 대상과 행동을 설명하는 편집 삽화 장면으로 작성하라. 음식이면 실제 음식·조리도구, 분량이면 포장·그릇·저울처럼 내용과 직접 연결된 사물을 그려라. 추상 도형·그라데이션만으로 대체하지 마라. 카드마다 다른 메시지를 설명하되 같은 화풍을 유지하라. 실제 제품 포장·상표·사건 사진처럼 꾸미지 말고 글자·수치는 별도로 렌더링한다. 아직 파일생성은 하지마라. 최종 JSON만:
+{{"title":"...","audience":"...","hook_candidates":["...","..."],"selected_hook":"후킹 후보 중 선택한 문구","hook_reason":"...","image_prompt":"카드 전체에 공유할 화풍과 색감, 각 카드의 구체적인 장면은 개별 image_prompt에 작성","sources":[{{"id":"src-1","title":"...","url":"https://..."}}],"cards":[{{"id":"card-1","headline":"...","body":"...","source_ids":["src-1"],"image_prompt":"..."}}]}}'''
     if p.get('stage') == 'replan':
         prompt += '\n기존 기획: ' + json.dumps(p['story'], ensure_ascii=False)
         prompt += '\n사용자 피드백(편집 요청 데이터): ' + json.dumps(p['plan_feedback'], ensure_ascii=False)
@@ -307,19 +307,40 @@ async def make_artifacts(p, image):
     event(p, f'카드 {len(p["story"]["cards"])}장 렌더링 완료. 미리보기에서 확인하고 최종 승인하세요.')
 
 
+def image_files(p):
+    records = p.get('card_images')
+    if records:
+        return {c['id']: path(p['id']) / records[c['id']]['path'] for c in p['story']['cards']}
+    return path(p['id']) / 'background.png'  # Existing completed versions only.
+
+
 async def produce(p):
-    image = path(p['id']) / 'background.png'
-    verified = False
-    try:
-        provenance = json.loads((path(p['id']) / 'image-provenance.json').read_text())
-        verified = provenance.get('generated') is True and hashlib.sha256(image.read_bytes()).hexdigest() == provenance.get('sha256')
-    except (OSError, ValueError):
-        pass
-    if not verified:
-        event(p, 'Antigravity CLI에 이미지 생성을 요청했습니다. 실제 파일을 기다립니다.')
-        image = await generate_image(p['story'].get('image_prompt', 'AI 기술 추상 배경, 아이보리와 코발트, 위쪽 글자 여백, 글자 없음'), path(p['id']), on_progress=progress_callback(p))
-    event(p, '이미지 파일을 확인했습니다. 한국어 글자를 별도로 배치하고 크기·잘림을 검사합니다.')
-    await make_artifacts(p, image)
+    records = p.setdefault('card_images', {})
+    for index, card in enumerate(p['story']['cards'], 1):
+        cid = card['id']
+        brief = '한국어 카드뉴스의 내용을 설명하는 구체적인 편집 삽화. 글자, 숫자, 로고는 그리지 않는다. 실제 제품 사진이 아닌 설명용 일러스트. 주제: ' + p['topic']
+        brief += '\n이번 카드 제목: ' + card['headline'] + '\n이번 카드 내용: ' + card['body']
+        brief += '\n이 카드에서 말하는 실제 사물과 상황이 눈에 보이게 그려라. 음식·도구·사람의 행동 등 구체적인 대상을 사용하고, 관련 없는 추상 도형이나 장식 배경만 그리지 마라. 확인되지 않은 제품 포장 디자인·브랜드·성능·가격을 지어내지 마라. 따뜻한 편집 일러스트 화풍. 가로 2:1 삽화로 주 피사체를 중앙에 크게 배치하라. 글자는 이미지 밖에 따로 넣는다.'
+        scene = card.get('image_prompt', '')
+        if scene and not re.search(r'추상|기하|도형|abstract|geometric', scene, re.I):
+            brief += '\n장면 계획(편집 데이터): ' + json.dumps(scene, ensure_ascii=False)
+        # The content is authoritative for old projects whose saved brief was abstract.
+        prompt_hash = hashlib.sha256(brief.encode()).hexdigest()
+        directory = path(p['id']) / 'images' / cid / prompt_hash[:12]
+        image = directory / 'background.png'
+        verified = False
+        try:
+            provenance = json.loads((directory / 'image-provenance.json').read_text())
+            verified = provenance.get('generated') is True and hashlib.sha256(image.read_bytes()).hexdigest() == provenance.get('sha256')
+        except (OSError, ValueError):
+            pass
+        if not verified:
+            event(p, f'{index}/{len(p["story"]["cards"])} 이미지: {card["headline"]} — 카드 내용에 맞는 삽화를 생성합니다.')
+            image = await generate_image(brief, directory, on_progress=progress_callback(p))
+        records[cid] = {'path': str(image.relative_to(path(p['id']))), 'prompt_sha256': prompt_hash}
+        save(p)
+    event(p, '카드별 이미지 파일을 확인했습니다. 각각의 카드에 배치합니다.')
+    await make_artifacts(p, image_files(p))
 
 
 async def revise(p):
@@ -331,7 +352,7 @@ async def revise(p):
     r['id'] = card['id']; r['source_ids'] = card['source_ids']; r['image_prompt'] = card.get('image_prompt', '')
     original['cards'] = [r if c['id'] == card['id'] else c for c in original['cards']]
     p['story'] = validate_story(original)
-    await make_artifacts(p, path(p['id']) / 'background.png')
+    await make_artifacts(p, image_files(p))
 
 
 OPERATIONS = {'research': research, 'deepen': deepen, 'plan': plan, 'replan': plan, 'produce': produce, 'revise': revise}
@@ -416,6 +437,12 @@ async def plan_revision(pid: str, body: PlanFeedback):
 @app.post('/api/projects/{pid}/approve')
 async def approve(pid: str):
     p = load(pid); require(p, {'awaiting_approval'}); return start(p, 'produce')
+
+
+@app.post('/api/projects/{pid}/regenerate-images')
+async def regenerate_images(pid: str):
+    p = load(pid); require(p, {'preview', 'complete'})
+    return start(p, 'produce')
 
 
 @app.post('/api/projects/{pid}/revisions')

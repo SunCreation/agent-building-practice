@@ -109,7 +109,7 @@ class EngineTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_image_and_provenance(self):
         async def fake_run(argv, cwd, call_id):
-            self.assertIn("--dangerously-skip-permissions", argv)
+            self.assertNotIn("--dangerously-skip-permissions", argv)
             Image.new("RGB", (32, 40), "white").save(cwd / "background.png")
             return '{"status":"SUCCESS","response":"saved"}'
 
@@ -122,12 +122,32 @@ class EngineTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(provenance["generated"])
         self.assertEqual(provenance["sha256"], hashlib.sha256(result.read_bytes()).hexdigest())
 
+    async def test_imports_new_generated_jpg_from_matching_conversation(self):
+        conversation=str(uuid.uuid4())
+        fake_home=self.cwd/'home'
+        async def fake_run(*args):
+            folder=fake_home/'.gemini'/'antigravity-cli'/'brain'/conversation
+            folder.mkdir(parents=True)
+            source=folder/'new.jpg';Image.new('RGB',(90,80),'brown').save(source)
+            return json.dumps({'status':'SUCCESS','conversation_id':conversation,'response':str(source)})
+        with patch.object(engines,'_run',fake_run),patch.object(Path,'home',return_value=fake_home):
+            result=await engines.generate_image('그릇과 저울',self.cwd)
+        with Image.open(result) as image:self.assertEqual(image.format,'PNG')
+
+    async def test_rejects_image_outside_generation_conversation(self):
+        source=self.cwd/'unrelated.jpg';Image.new('RGB',(90,80),'brown').save(source)
+        async def fake_run(*args):
+            return json.dumps({'status':'SUCCESS','conversation_id':str(uuid.uuid4()),'response':str(source)})
+        with patch.object(engines,'_run',fake_run):
+            with self.assertRaisesRegex(RuntimeError,'one new image'):
+                await engines.generate_image('그릇',self.cwd)
+
     async def test_success_without_new_image_rejects_stale_png(self):
         Image.new("RGB", (32, 40)).save(self.cwd / "background.png")
         async def fake_run(*args):
             return '{"status":"SUCCESS"}'
         with patch.object(engines, "_run", fake_run):
-            with self.assertRaisesRegex(RuntimeError, "was not created"):
+            with self.assertRaisesRegex(RuntimeError, "valid generation conversation"):
                 await engines.generate_image("test", self.cwd)
         self.assertEqual(len(list(self.cwd.glob("background.previous-*.png"))), 1)
 
