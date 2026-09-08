@@ -5,7 +5,7 @@ C [label="agent.py: Agent.run",shape=box];
 D [label="providers.py: 모델에 요청",shape=box];
 E [label="도구 요청 또는 최종 텍스트",shape=box];
 F [label="도구 계약과 실행 한도 검사",shape=box];
-G [label="LocalTools 또는 HarborTools",shape=box];
+G [label="LocalTools 또는 LocalBenchmarkTools",shape=box];
 H [label="실제 결과와 오류",shape=box];
 I [label="결과·상태·실행 지표",shape=box];
 A -> B [label=""];
