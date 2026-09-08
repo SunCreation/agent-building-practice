@@ -25,12 +25,15 @@ h1{font-size:64px;line-height:1.22;letter-spacing:-2px;word-break:keep-all;overf
 p{font-size:35px;line-height:1.65;letter-spacing:-.4px;word-break:keep-all;overflow-wrap:anywhere;white-space:pre-wrap;margin:0;width:100%;flex-shrink:0}
 footer{position:absolute;left:76px;right:76px;bottom:60px;height:69px;border-top:1px solid currentColor;padding-top:18px;display:flex;justify-content:space-between;gap:20px;font-size:19px;line-height:1.35}
 footer span{max-width:65%;overflow:hidden;overflow-wrap:anywhere}
-footer span:last-child{text-align:right;max-width:30%}.art{position:absolute;right:0;bottom:136px;width:470px;height:470px;object-fit:cover;opacity:.94;border-radius:150px 0 0 0}
-.cover .copy{right:76px;height:660px}.cover h1{font-size:76px;max-height:292px}.cover p{max-width:720px;font-size:35px}.cover .art{width:355px;height:355px;bottom:135px;z-index:0}.copy{z-index:1}
-.deep{background:#234fce;color:#fff9ed}.deep .mark{color:#fff9ed}.deep .rule{background:#ffad75}.deep .art{display:none}
-.number .art{width:160px;height:160px;top:154px;bottom:auto;border-radius:50%;opacity:.8}.number .eyebrow{max-width:700px}.number h1{padding-right:125px}
-.split .art{width:300px;height:300px;bottom:140px;border-radius:80px 0 0 0}.split .copy{height:710px}
-.close{background:#e7ecfb}.close .art{width:200px;height:200px;bottom:140px;border-radius:50%;right:76px}.close .copy{height:810px}
+footer span:last-child{text-align:right;max-width:30%}
+.art{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center bottom;opacity:1;z-index:0}
+.card::after{content:"";position:absolute;inset:0;z-index:1;background:linear-gradient(to bottom,rgba(246,243,235,.97) 0%,rgba(246,243,235,.94) 48%,rgba(246,243,235,.85) 67%,rgba(246,243,235,.12) 87%,rgba(246,243,235,.05) 100%);pointer-events:none}
+header,.copy,footer{z-index:2}header{position:relative}
+footer{background:rgba(246,243,235,.95);padding:16px 18px;height:73px;bottom:40px;border:0;border-radius:8px}
+.cover .copy{right:76px;height:820px}.cover h1{font-size:76px;max-height:292px}.cover p{max-width:860px;font-size:35px}
+.deep{color:#fff9ed}.deep::after{background:linear-gradient(to bottom,rgba(14,29,58,.95) 0%,rgba(14,29,58,.91) 48%,rgba(14,29,58,.8) 67%,rgba(14,29,58,.12) 87%,rgba(14,29,58,.04) 100%)}
+.deep .mark{color:#fff9ed}.deep .rule{background:#ffad75}.deep footer{background:rgba(14,29,58,.95)}
+.split .copy{height:880px}.close .copy{height:880px}
 @media print{.card{break-after:page}}@page{size:1080px 1350px;margin:0}
 """
 
@@ -118,6 +121,9 @@ async def render(story: dict, directory: str | Path, image_path: str | Path) -> 
                 loc = page.locator("#" + card["id"])
                 problems = await loc.evaluate("""e => {
                     const issues=[];
+                    const art=e.querySelector('.art'), style=getComputedStyle(art), a=art.getBoundingClientRect(), r=e.getBoundingClientRect();
+                    if(style.display==='none'||style.visibility==='hidden'||Number(style.opacity)<.9||a.width<r.width-1||a.height<r.height-1)
+                        issues.push('generated image must cover the card');
                     for(const item of e.querySelectorAll('[data-check]')) {
                         if(item.scrollHeight > item.clientHeight + 1 || item.scrollWidth > item.clientWidth + 1)
                             issues.push(item.tagName + ' text overflow');

@@ -8,6 +8,8 @@ from pathlib import Path
 import tempfile
 import unittest
 import zipfile
+from unittest.mock import patch
+import rendering
 
 from rendering import html_document, png_dimensions, render, validate_story
 
@@ -75,6 +77,13 @@ class RenderingTests(unittest.TestCase):
             with zipfile.ZipFile(first / "card-news.zip") as archive:
                 self.assertEqual(set(archive.namelist()), set(names) - {"card-news.zip"})
                 self.assertIsNone(archive.testzip())
+
+    def test_hidden_generated_image_is_rejected(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch.object(rendering, 'CSS', rendering.CSS + '.deep .art{display:none}'):
+                with self.assertRaisesRegex(ValueError, 'generated image must cover'):
+                    asyncio.run(render(copy.deepcopy(STORY), tmp, IMAGE))
+            self.assertFalse((Path(tmp) / 'card-news.zip').exists())
 
     def test_text_overflow_rejected_before_export(self):
         story = copy.deepcopy(STORY)
