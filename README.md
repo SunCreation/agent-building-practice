@@ -1,11 +1,12 @@
 # 에이전트 제작 실습 자료
 
-명세를 작성해 자기 하네스를 만드는 설계 키트와 기존 SDK·CLI를 조립하는 카드뉴스 제작기입니다.
+PRD로 자신의 하네스를 만들거나, 기존 SDK·CLI를 연결해 사용자와 함께 동작하는 워크플로를 만듭니다.
 
-- [Harness Design Kit](harness-design-kit/README.md): 미완성 PRD, 설계 질문, 언어·플랫폼 선택, 인터페이스와 검증 시나리오. 여기서 시작합니다.
-- [Python Harness Lab](harness-lab/README.md): 실제 Python 하네스, Docker 없이 실행하는 Terminal-Bench Pro 로컬 10문항(원본 easy 2·medium 4·hard 4), 점수 모니터·비교 실험과 제출 양식.
-- [Card News Studio](card-news-studio/README.md): Claude Agent SDK / OpenCode CLI, 프로젝트별 세션·부분 수정·PNG/PDF·웹앱·Tailscale Serve.
+- [Harness Design Kit](harness-design-kit/README.md): 하네스 요구사항, 설계 질문, 언어·플랫폼 선택과 검증 시나리오.
+- [Python Harness Lab](harness-lab/README.md): Python 하네스 참고 구현. 최신 실습용 채점기는 [Agent Terminal Benchmark](https://github.com/SunCreation/agent-terminal-benchmark)를 사용합니다.
+- [Card News Workflow Kit](card-news-workflow-kit/README.md): **Day39 시작 자료**. 주제 조사 → 브라우저 후보 선택 → 독자·후킹 판단 → Antigravity 이미지 생성 → 검수·내보내기를 구현할 전체 PRD와 확인 목록입니다. 완성 앱이 아닌 설계 키트입니다.
+- [이전 Card News Studio](card-news-studio/README.md): 자료를 직접 제공하는 이전 예제입니다. 새 Day39의 검색·선택·Antigravity 워크플로 구현본이 아닙니다.
 
-[최신 실습 ZIP](https://github.com/SunCreation/agent-building-practice/releases/tag/v4.0.0)을 내려받고 각 폴더의 README에서 사용 방법을 확인하세요. Python 하네스는 프로젝트 루트에서 `uv sync --locked`, `uv run run.py`로 시작합니다. 설계 키트는 문서로 구성되어 있으며, 카드뉴스 프로젝트에는 `uv.lock`을 포함했습니다. API 키, 인증 정보, 개인 작업 기록은 포함하지 않습니다.
+[Day39 설계 키트 ZIP](https://github.com/SunCreation/agent-building-practice/releases/download/v5.0.0/card-news-workflow-kit.zip)을 내려받아 README의 짧은 요청으로 시작하세요. 기존 하네스 자료는 [v4.0.0 릴리스](https://github.com/SunCreation/agent-building-practice/releases/tag/v4.0.0)에서도 받을 수 있습니다.
 
-`assets`의 화면과 카드 이미지는 수업용 가상 행사 자료를 사용한 실제 예제 엔진 출력입니다. 예제 엔진은 AI를 호출하지 않으며 실제 모델 연결 검증과 구분합니다.
+`assets`의 기존 화면과 카드 이미지는 가상 행사 자료를 사용하는 예제 엔진 출력입니다. 실제 AI 모델 연결 결과와 구분합니다. 인증 정보는 배포물에 포함하지 않습니다.
