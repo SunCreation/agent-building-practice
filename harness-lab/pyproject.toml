@@ -1,13 +1,12 @@
 [project]
 name = "harness-lab"
-version = "0.1.0"
+version = "0.2.0"
 description = "A readable Python agent with independent terminal benchmark evaluation"
 requires-python = ">=3.13"
-dependencies = ["openai==2.54.0", "httpx>=0.28,<1", "jsonschema>=4.26,<5"]
+dependencies = ["openai==2.54.0", "httpx>=0.28,<1", "jsonschema>=4.26,<5", "pytest==8.4.1", "mypy>=1.15,<2", "flake8>=7,<8"]
 
 [project.optional-dependencies]
-benchmark = ["harbor==0.22.0"]
-dev = ["pytest>=9,<10"]
+dev = []
 
 [tool.uv]
 package = false

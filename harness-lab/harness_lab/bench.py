@@ -1,165 +1,294 @@
-"""Run a pinned ten-task subset through Harbor, without copying answers into prompts."""
+"""Pinned local Python benchmark. Disposable copies are NOT an OS sandbox.
+
+Run only trusted course agents/code on Windows/macOS/Linux. Grader cases and
+reference files are never copied into agent workspaces. Source snapshots, not
+later working-tree edits, execute each experiment.
+"""
 from __future__ import annotations
 
 import argparse
+import asyncio
+from collections import Counter
+from datetime import datetime, timezone
 import hashlib
-import importlib.metadata
+import importlib
+import importlib.util
+import inspect
 import json
 import os
+import platform
 from pathlib import Path
 import re
 import shutil
-import shlex
 import subprocess
 import sys
-from datetime import datetime, timezone
+import uuid
 
 ROOT = Path(__file__).resolve().parents[1]
 MANIFEST = ROOT / "benchmark/tasks.json"
+DEFAULT_AGENT = "harness_lab.local_agent:solve_task"
 
 
-def write_json(path: Path, value: dict) -> None:
+def now():
+    return datetime.now(timezone.utc).isoformat()
+
+
+def write_json(path: Path, value: dict):
     temporary = path.with_suffix(".tmp")
-    temporary.write_text(json.dumps(value, ensure_ascii=False, indent=2) + "\n")
+    temporary.write_text(json.dumps(value, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     temporary.replace(path)
 
 
 def load_manifest(path: Path) -> dict:
-    data = json.loads(path.read_text())
+    data = json.loads(path.read_text(encoding="utf-8"))
     tasks = data["tasks"]
-    if len(tasks) != 10 or len({t["name"] for t in tasks}) != 10:
-        raise ValueError("The course subset must contain ten distinct tasks")
-    if sum(t["difficulty"] == "easy" for t in tasks) != 2 or sum(t["difficulty"] == "hard" for t in tasks) != 8:
-        raise ValueError("The course subset must contain two easy and eight hard tasks")
-    if not re.fullmatch(r"[0-9a-f]{40}", data["revision"]):
-        raise ValueError("Pin a full Git commit, not a moving branch")
-    if any(not re.fullmatch(r"[a-z0-9][a-z0-9_-]+", t["name"]) for t in tasks):
-        raise ValueError("Invalid task name")
+    if not isinstance(data.get("suite_id"), str) or not data["suite_id"].strip() or not isinstance(data.get("revision"), str) or not data["revision"].strip():
+        raise ValueError("Manifest requires a suite_id and pinned revision")
+    if len(tasks) != 10 or len({task["name"] for task in tasks}) != 10:
+        raise ValueError("Manifest must contain ten distinct tasks")
+    counts = Counter(task["difficulty"] for task in tasks)
+    expected = data.get("selection_counts")
+    if expected is None and data["suite_id"] == "local-harness-v1":
+        expected = {"easy": 2, "medium": 4, "hard": 4}
+    if expected is not None and counts != expected:
+        raise ValueError("Task difficulties differ from pinned selection_counts")
+    for task in tasks:
+        if not re.fullmatch(r"[a-z0-9][a-z0-9_-]*", task["name"]):
+            raise ValueError("Invalid task name")
     return data
 
 
-def make_config(args, manifest: dict) -> dict:
-    """A real Harbor JobConfig, validated against the pinned installed package."""
-    from harbor.models.job.config import JobConfig
-    agent = {"name": "oracle"} if args.oracle else {
-        "import_path": args.agent,
-        "model_name": f"{args.provider}/{args.model}",
-        "kwargs": {"provider": args.provider, "max_steps": args.max_steps,
-                   "max_seconds": args.max_seconds, "command_timeout": args.command_timeout},
-    }
-    config = {
-        "job_name": args.name, "jobs_dir": str(args.jobs.resolve()),
-        "n_attempts": args.attempts, "n_concurrent_trials": 1,
-        "retry": {"max_retries": 0},
-        "environment": {"type": "docker", "delete": True},
-        "agents": [agent],
-        "datasets": [{"repo": manifest.get("url", manifest["repo"]),
-                      "ref": manifest["revision"],
-                      "task_names": [t["name"] for t in manifest["tasks"]]}],
-    }
-    return JobConfig.model_validate(config).model_dump(mode="json")
+def copy_tree(source: Path, target: Path, *, python_only=False, verified_fixtures=False):
+    """No links, hidden files, caches, environments or credential files."""
+    target.mkdir(parents=True, exist_ok=False)
+    for path in sorted(source.rglob("*")):
+        relative = path.relative_to(source)
+        if any(part == "__pycache__" or (part.startswith(".") and not verified_fixtures) for part in relative.parts):
+            continue
+        if path.is_symlink():
+            raise ValueError(f"Snapshot source contains a symbolic link: {relative}")
+        if path.is_file() and (not python_only or path.suffix == ".py"):
+            destination = target / relative
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(path, destination)
 
 
-def source_hash() -> str:
+def hash_tree(directory: Path) -> str:
     digest = hashlib.sha256()
-    for path in sorted((ROOT / "harness_lab").glob("*.py")):
-        digest.update(path.name.encode())
-        digest.update(path.read_bytes())
+    for path in sorted(directory.rglob("*")):
+        if path.is_file() and "__pycache__" not in path.parts:
+            digest.update(path.relative_to(directory).as_posix().encode())
+            digest.update(b"\0")
+            digest.update(path.read_bytes())
     return digest.hexdigest()
 
 
-def preflight(args) -> list[str]:
+def agent_parts(value: str):
+    if not re.fullmatch(r"[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*:[A-Za-z_]\w*", value):
+        raise ValueError("Agent must be module:async_function")
+    return value.split(":")
+
+
+def snapshot_sources(root: Path, destination: Path, manifest_path: Path, agent: str, upstream: Path) -> dict:
+    destination.mkdir()
+    copy_tree(root / "harness_lab", destination / "harness_lab", python_only=True)
+    benchmark = destination / "benchmark"
+    benchmark.mkdir()
+    manifest = load_manifest(manifest_path)
+    for task in manifest["tasks"]:
+        for record in task["source_files"]:
+            relative = Path(task["name"]) / record["path"]
+            source = upstream / relative
+            if source.is_symlink() or not source.resolve().is_relative_to(upstream.resolve()):
+                raise ValueError("Upstream source escapes cache")
+            content = source.read_bytes()
+            if len(content) != record["size_bytes"] or hashlib.sha256(content).hexdigest() != record["sha256"]:
+                raise ValueError("Upstream snapshot does not match manifest")
+            target = benchmark / "upstream" / relative
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(content)
+    shutil.copy2(manifest_path, benchmark / "tasks.json")
+    for name in ("pyproject.toml", "uv.lock"):
+        if (root / name).exists():
+            shutil.copy2(root / name, destination / name)
+    module, _ = agent_parts(agent)
+    source_path = None
+    if not module.startswith("harness_lab."):
+        top = module.split(".")[0]
+        spec = importlib.util.find_spec(top)
+        if spec is None or spec.origin is None:
+            raise ValueError("Cannot locate custom agent source")
+        source_path = str(Path(spec.origin).resolve())
+        if spec.submodule_search_locations:
+            copy_tree(Path(spec.origin).parent, destination / top, python_only=True)
+        else:
+            shutil.copy2(spec.origin, destination / (top + ".py"))
+    return {"agent_source_path": source_path or str(root / (module.replace(".", "/") + ".py")),
+            "source_sha256": hash_tree(destination)}
+
+
+def preflight(args):
+    if args.self_check:
+        return []
     errors = []
-    if shutil.which("docker") is None:
-        errors.append("Docker CLI is missing. Install and start a Docker-compatible engine.")
-    else:
-        try:
-            result = subprocess.run(["docker", "info"], capture_output=True, timeout=15)
-            if result.returncode:
-                errors.append("Docker engine is not reachable.")
-        except subprocess.TimeoutExpired:
-            errors.append("Docker engine check timed out.")
-    if not args.oracle and args.provider == "openai" and not os.getenv("OPENAI_API_KEY"):
-        errors.append("OPENAI_API_KEY is not set in the process running the harness.")
-    if not args.oracle and not args.model:
-        errors.append("Choose --model explicitly.")
-    if importlib.metadata.version("harbor") != "0.22.0":
-        errors.append("Use the pinned Harbor 0.22.0 (uv sync --extra benchmark --extra dev).")
+    if not args.model:
+        errors.append("Choose --model explicitly")
+    if args.agent == DEFAULT_AGENT and args.provider == "openai" and not os.getenv("OPENAI_API_KEY"):
+        errors.append("OPENAI_API_KEY is not set")
     return errors
 
 
-def parser() -> argparse.ArgumentParser:
+def parser():
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument("--name", required=True, help="New experiment name; existing runs are never overwritten")
+    p.add_argument("--name", required=True)
     p.add_argument("--manifest", type=Path, default=MANIFEST)
     p.add_argument("--jobs", type=Path, default=ROOT / "jobs")
-    p.add_argument("--provider", choices=("openai", "ollama"), default="openai")
+    p.add_argument("--provider", choices=["openai", "ollama"], default="openai")
     p.add_argument("--model", default="")
-    p.add_argument("--agent", default="harness_lab.harbor_agent:HarnessAgent")
+    p.add_argument("--agent", default=DEFAULT_AGENT)
     p.add_argument("--attempts", type=int, default=1)
-    p.add_argument("--max-steps", type=int, default=80)
-    p.add_argument("--max-seconds", type=int, default=900)
-    p.add_argument("--command-timeout", type=int, default=120)
-    p.add_argument("--oracle", action="store_true", help="Environment check using reference solutions; NOT an agent score")
-    p.add_argument("--dry-run", action="store_true", help="Validate and print configuration; does not execute or score")
+    p.add_argument("--max-steps", type=int, default=40)
+    p.add_argument("--max-seconds", type=float, default=300)
+    p.add_argument("--command-timeout", type=float, default=10)
+    p.add_argument("--self-check", action="store_true", help="Reference-to-grader check; NOT an agent score")
+    p.add_argument("--dry-run", action="store_true", help="Validate configuration without executing")
     return p
 
 
-def main(argv=None) -> int:
+def refresh_report(job: Path, manifest: Path, attempts: int):
+    from .report import build_report, write_snapshot
+    write_snapshot(build_report(job, manifest, attempts), job / "scoreboard")
+
+
+async def worker(request_path: Path):
+    from .grading import grade
+    from .benchmark_source import prepare
+    from .reference import run_reference
+    request = json.loads(request_path.read_text(encoding="utf-8"))
+    job = Path(request["job"])
+    options = request["options"]
+    manifest = load_manifest(ROOT / "benchmark/tasks.json")
+    metadata = json.loads((job / "run-metadata.json").read_text(encoding="utf-8"))
+    solve = None
+    if not options["self_check"]:
+        module, name = agent_parts(options["agent"])
+        solve = getattr(importlib.import_module(module), name)
+        if not inspect.iscoroutinefunction(solve):
+            raise ValueError("Custom solve_task must be async")
+    self_check_passed = True
+    try:
+        for task in manifest["tasks"]:
+            for attempt in range(1, options["attempts"] + 1):
+                trial = job / f"{task['name']}__{attempt}"
+                trial.mkdir()
+                workspace = trial / "workspace"
+                prepared = prepare(task["name"], workspace, cache=ROOT / "benchmark/upstream")
+                task_dir = Path(prepared["task_dir"])
+                task_options = {**options, "task_cwd": str(Path(prepared["cwd"]).relative_to(workspace))}
+                # prepare copies only verified public fixtures, never verifier/solution sources.
+                logs = trial / "agent"
+                logs.mkdir()
+                result = {"id": uuid.uuid4().hex, "task_name": task["name"], "trial_name": trial.name,
+                          "started_at": now(), "finished_at": None, "agent_result": None,
+                          "fixture_sha256": prepared.get("fixture_sha256", {}),
+                          "verifier_result": None, "exception_info": None}
+                write_json(trial / "result.json", result)
+                try:
+                    if options["self_check"]:
+                        reference_result = await run_reference(task_dir, workspace, timeout=360)
+                        agent_result = {"status": "grader_self_check", "answer": "Reference used only for grader validation", "metrics": {}, "reference_execution": reference_result}
+                    else:
+                        async with asyncio.timeout(options["max_seconds"] + 5):
+                            agent_result = await solve(prepared["instruction"], workspace, logs, task_options)
+                        if not isinstance(agent_result, dict):
+                            raise ValueError("solve_task must return a result dictionary")
+                    metrics = agent_result.get("metrics", {})
+                    known = metrics.get("usage_known", False)
+                    result["agent_result"] = {**agent_result,
+                        "n_input_tokens": metrics.get("input_tokens") if known else None,
+                        "n_output_tokens": metrics.get("output_tokens") if known else None,
+                        "n_cache_tokens": None, "cost_usd": None}
+                    verdict = await grade(task_dir, workspace, timeout=360)
+                    result["verifier_result"] = {"rewards": {"reward": verdict["reward"]}, **verdict}
+                    if not options["self_check"] and agent_result.get("status") != "completed":
+                        result["exception_info"] = {"exception_type": "AgentIncomplete", "message": str(agent_result.get("status"))}
+                except asyncio.CancelledError:
+                    result["exception_info"] = {"exception_type": "Interrupted"}
+                    raise
+                except Exception as exc:
+                    result["exception_info"] = {"exception_type": type(exc).__name__}
+                finally:
+                    if options["self_check"] and (result["exception_info"] or (result.get("verifier_result") or {}).get("rewards", {}).get("reward") != 1):
+                        self_check_passed = False
+                    result["finished_at"] = now()
+                    write_json(trial / "result.json", result)
+                    refresh_report(job, ROOT / "benchmark/tasks.json", options["attempts"])
+        metadata["status"] = "finished"
+        if options["self_check"]:
+            metadata["self_check_passed"] = self_check_passed
+    except BaseException:
+        metadata["status"] = "interrupted"
+        raise
+    finally:
+        metadata["finished_at"] = now()
+        write_json(job / "run-metadata.json", metadata)
+        refresh_report(job, ROOT / "benchmark/tasks.json", options["attempts"])
+    return 0 if not options["self_check"] or self_check_passed else 1
+
+
+def main(argv=None):
+    argv = sys.argv[1:] if argv is None else argv
+    if len(argv) == 2 and argv[0] == "--_worker":
+        return asyncio.run(worker(Path(argv[1])))
     args = parser().parse_args(argv)
     if not re.fullmatch(r"[A-Za-z0-9_-]{1,64}", args.name):
         raise SystemExit("Use a simple unique experiment name")
-    if min(args.attempts, args.max_steps, args.max_seconds, args.command_timeout) < 1:
+    if min(args.attempts, args.max_steps, args.max_seconds, args.command_timeout) <= 0:
         raise SystemExit("Attempts and limits must be positive")
     manifest = load_manifest(args.manifest)
-    config = make_config(args, manifest)
+    agent_parts(args.agent)
+    options = {key: getattr(args, key) for key in ("provider", "model", "agent", "attempts", "max_steps", "max_seconds", "command_timeout", "self_check")}
     if args.dry_run:
-        print(json.dumps(config, indent=2))
+        print(json.dumps({"suite_id": manifest["suite_id"], "revision": manifest["revision"], "tasks": [t["name"] for t in manifest["tasks"]], "options": options}, ensure_ascii=False, indent=2))
         return 0
     errors = preflight(args)
     if errors:
-        for error in errors:
-            print(error, file=sys.stderr)
+        print("\n".join(errors), file=sys.stderr)
         return 2
+    from .benchmark_source import ensure_sources
+    upstream = ensure_sources()
     job = args.jobs.resolve() / args.name
     if job.exists():
-        raise SystemExit("Experiment already exists. Use a new --name; never overwrite a baseline.")
+        raise SystemExit("Experiment already exists; choose a new --name")
     job.mkdir(parents=True)
-    meta = {
-        "variant": args.name, "kind": "oracle_environment_check" if args.oracle else "agent_evaluation",
-        "provider": args.provider, "model": args.model, "attempts": args.attempts,
-        "expected_tasks": [t["name"] for t in manifest["tasks"]],
-        "revision": manifest["revision"], "manifest_sha256": hashlib.sha256(args.manifest.read_bytes()).hexdigest(),
-        "code_sha256": source_hash(), "agent_import_path": args.agent,
-        "limits": {"max_steps": args.max_steps, "max_seconds": args.max_seconds,
-                   "command_timeout": args.command_timeout, "n_concurrent_trials": 1, "max_retries": 0},
-        "harbor_version": importlib.metadata.version("harbor"),
-        "started_at": datetime.now(timezone.utc).isoformat(), "status": "running",
-    }
-    write_json(job / "run-metadata.json", meta)
-    # Preserve the submitted implementation independently of later edits.
-    shutil.copytree(ROOT / "harness_lab", job / "source" / "harness_lab", ignore=shutil.ignore_patterns("__pycache__"))
-    shutil.copy2(ROOT / "pyproject.toml", job / "source" / "pyproject.toml")
-    shutil.copy2(ROOT / "uv.lock", job / "source" / "uv.lock")
+    snapshot = snapshot_sources(ROOT, job / "source", args.manifest.resolve(), args.agent, upstream)
+    metadata = {"variant": args.name, "kind": "grader_self_check" if args.self_check else "agent_evaluation",
+        "suite_id": manifest["suite_id"], "revision": manifest["revision"], "provider": args.provider,
+        "execution_mode": "local-port", "platform": platform.platform(), "python_version": platform.python_version(),
+        "hostlimits": "unrestricted",
+        "model": args.model, "attempts": args.attempts, "expected_tasks": [t["name"] for t in manifest["tasks"]],
+        "manifest_sha256": hashlib.sha256(args.manifest.read_bytes()).hexdigest(), **snapshot,
+        "code_sha256": snapshot["source_sha256"], "agent_import_path": args.agent,
+        "limits": {key: options[key] for key in ("max_steps", "max_seconds", "command_timeout")},
+        "started_at": now(), "status": "running"}
+    write_json(job / "run-metadata.json", metadata)
     shutil.copy2(args.manifest, job / "manifest.json")
-    # Store configuration separately from Harbor's own config.json to avoid accidental resume.
-    config_path = job / "requested-config.json"
-    write_json(config_path, config)
-    print(f"Results: {job}", flush=True)
-    print("Monitor: " + shlex.join(["uv", "run", "python", "-m", "harness_lab.report", str(job), "--manifest", str(args.manifest.resolve()), "--attempts", str(args.attempts), "--watch", "5"]), flush=True)
+    request = job / "requested-config.json"
+    write_json(request, {"job": str(job), "options": options})
     env = os.environ.copy()
-    env["PYTHONPATH"] = str(job / "source") + os.pathsep + str(ROOT) + os.pathsep + env.get("PYTHONPATH", "")
+    env["PYTHONPATH"] = str(job / "source")
+    env["PYTHONDONTWRITEBYTECODE"] = "1"
+    print(f"Results: {job}\nLive score: {job / 'scoreboard/index.html'}", flush=True)
     try:
-        completed = subprocess.run([str(Path(sys.executable).with_name("harbor")), "run", "--config", str(config_path)], cwd=job / "source", env=env)
-        meta["status"] = "finished" if completed.returncode == 0 else "error"
-        meta["exit_code"] = completed.returncode
+        completed = subprocess.run([sys.executable, "-m", "harness_lab.bench", "--_worker", str(request)], cwd=job / "source", env=env)
+        current = json.loads((job / "run-metadata.json").read_text(encoding="utf-8"))
+        current["exit_code"] = completed.returncode
+        if current["status"] == "running":
+            current.update(status="error", finished_at=now())
+        write_json(job / "run-metadata.json", current)
+        return completed.returncode
     except KeyboardInterrupt:
-        meta["status"] = "interrupted"
-        meta["exit_code"] = 130
-    finally:
-        meta["finished_at"] = datetime.now(timezone.utc).isoformat()
-        write_json(job / "run-metadata.json", meta)
-    return meta["exit_code"]
+        return 130
 
 
 if __name__ == "__main__":

@@ -1,7 +1,7 @@
 """Local tools: scoped file operations and human-approved argv execution.
 
-An approved command runs as the user, not inside an OS sandbox. Harbor supplies
-its own isolated environment backend instead of using this local backend.
+An approved command runs as the user, not inside an OS sandbox. The local
+benchmark uses a separate backend with a fixed Python execution tool.
 """
 from __future__ import annotations
 

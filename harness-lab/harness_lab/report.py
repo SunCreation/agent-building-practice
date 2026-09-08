@@ -1,8 +1,9 @@
-"""Read Harbor 0.22.0 trial result.json files without changing benchmark results.
+"""Read pinned Terminal-Bench Pro local-port trial result.json snapshots.
 
 Score = binary passes / (the selected 10 tasks * requested attempts). This is a
 mean over attempts, NOT pass@k. Missing/error trials remain in the denominator.
-Schema sources: harbor/models/{trial/result,job/result,agent/context}.py.
+Local result format preserves task_name/verifier_result/agent_result fields.
+Original difficulty labels are retained; local-port scores are not official container scores.
 """
 from __future__ import annotations
 
@@ -42,8 +43,8 @@ def load_manifest(path: Path) -> tuple[list[dict], str]:
         names.append(task["name"])
     if len(set(names)) != 10:
         raise ValueError("Manifest task names must be unique")
-    if Counter(t["difficulty"] for t in tasks) != {"easy": 2, "hard": 8}:
-        raise ValueError("Selected benchmark must contain 2 easy and 8 hard tasks")
+    if Counter(t["difficulty"] for t in tasks) != {"easy": 2, "medium": 4, "hard": 4}:
+        raise ValueError("Selected local suite must contain 2 easy, 4 medium and 4 hard tasks")
     return tasks, hashlib.sha256(path.read_bytes()).hexdigest()
 
 
@@ -73,7 +74,7 @@ def trial_metrics(result: dict) -> dict:
         contexts = []
     for key in METRICS[1:]:
         values = [numeric(c.get(key)) if isinstance(c, dict) else None for c in contexts]
-        # Unlike Harbor's nullable partial sums, expose a total only if every
+        # Expose a total only if every
         # contributing step is known; unknown is never substituted with zero.
         metrics[key] = sum(values) if values and all(v is not None for v in values) else None
     return metrics
@@ -148,7 +149,7 @@ def build_report(job_dir: Path | str, manifest: Path | str, attempts: int = 1) -
             warnings.append("Job result.json is incomplete/unreadable")
     finished = bool(job_result.get("finished_at")) or str(metadata.get("status", "")).lower() in TERMINAL
     grouped = defaultdict(list)
-    # Only Harbor's direct trial folders. Never ingest task artifacts or nested
+    # Only direct trial folders. Never ingest task artifacts or nested
     # verifier outputs named result.json as additional benchmark trials.
     for path in sorted(job_dir.glob("*/result.json")):
         try:
@@ -188,7 +189,7 @@ def build_report(job_dir: Path | str, manifest: Path | str, attempts: int = 1) -
     return {
         "schema_version": 1, "kind": metadata.get("kind", "unrecorded"), "generated_at": datetime.now(timezone.utc).isoformat(), "job_dir": str(job_dir.resolve()),
         "manifest_sha256": manifest_hash, "attempts": attempts, "task_count": 10, "metadata": metadata,
-        "job_finished": finished, "job_elapsed_seconds": elapsed(job_result.get("started_at"), job_result.get("finished_at")),
+        "job_finished": finished, "job_elapsed_seconds": elapsed(metadata.get("started_at"), metadata.get("finished_at")) if metadata.get("execution_mode") == "local-port" else elapsed(job_result.get("started_at"), job_result.get("finished_at")),
         "score_definition": "binary reward == 1 passes / (10 selected tasks * attempts); mean over attempts, not pass@k; errors and missing remain in denominator",
         "attempt_order": "Lexicographic trial folder order within each task; labels are not paired RNG seeds across runs",
         "summary": aggregate(rows), "breakdown": breakdown, "rows": rows, "warnings": warnings,
@@ -196,20 +197,22 @@ def build_report(job_dir: Path | str, manifest: Path | str, attempts: int = 1) -
 
 
 def compare_reports(current: dict, baseline: dict) -> dict:
-    if current.get("kind") == "oracle_environment_check" or baseline.get("kind") == "oracle_environment_check":
-        raise ValueError("Oracle environment-check results cannot be compared as agent evaluations")
+    if current.get("kind") in {"oracle_environment_check", "grader_self_check"} or baseline.get("kind") in {"oracle_environment_check", "grader_self_check"}:
+        raise ValueError("Grader/oracle self-check results cannot be compared as agent evaluations")
     mismatches = []
     if current.get("kind") != "agent_evaluation" or baseline.get("kind") != "agent_evaluation":
         mismatches.append("Agent evaluation kind is unrecorded")
     for key in ("manifest_sha256", "attempts"):
         if current[key] != baseline[key]:
             mismatches.append(f"{key} differs")
-    for key in ("provider", "model", "revision", "limits"):
+    for key in ("provider", "model", "revision", "limits", "execution_mode", "suite_id", "platform", "python_version", "hostlimits"):
         a, b = current["metadata"].get(key), baseline["metadata"].get(key)
         if a is None or b is None:
             mismatches.append(f"{key} unrecorded")
         elif a != b:
             mismatches.append(f"{key} differs")
+    if not current["job_finished"] or not baseline["job_finished"] or current["summary"]["pending"] or baseline["summary"]["pending"]:
+        mismatches.append("Comparison is unfinished; pending trials are not completed results")
     if current["warnings"] or baseline["warnings"]:
         mismatches.append("One or both reports have diagnostics; inspect warnings")
     comparable = not mismatches and current["job_finished"] and baseline["job_finished"]
@@ -227,9 +230,9 @@ def display(value: Any) -> str:
 def render_html(report: dict, refresh: float = 0) -> str:
     e = lambda value: html.escape(display(value), quote=True)
     summary = report["summary"]
-    oracle = report.get("kind") == "oracle_environment_check"
-    heading = "Oracle 환경 검증 · 학생 하네스 성능 아님" if oracle else "하네스 벤치마크 모니터"
-    kind_notice = "정답 솔버가 환경과 채점 경로를 확인한 결과입니다. 이 통과율은 에이전트 점수가 아니며 개선 비교에서 제외합니다." if oracle else ("실제 에이전트 평가 기록" if report.get("kind") == "agent_evaluation" else "실행 종류 미기록: agent/oracle 여부를 확인하기 전 에이전트 성능으로 해석하지 마세요.")
+    oracle = report.get("kind") in {"oracle_environment_check", "grader_self_check"}
+    heading = "채점기 자체 검증 · 학생 하네스 성능 아님" if oracle else "로컬 하네스 평가 모니터"
+    kind_notice = "정답 예제 또는 솔버로 채점 경로를 확인한 결과입니다. 이 통과율은 에이전트 점수가 아니며 개선 비교에서 제외합니다." if oracle else ("실제 에이전트 평가 기록" if report.get("kind") == "agent_evaluation" else "실행 종류 미기록: agent/self-check 여부를 확인하기 전 에이전트 성능으로 해석하지 마세요.")
     headers = ("task", "difficulty", "category", "attempt", "status", "raw_reward", "reason", *METRICS)
     rows = "".join("<tr>" + "".join(f"<td>{e(row[h])}</td>" for h in headers) + "</tr>" for row in report["rows"])
     groups = "".join(f"<tr><td>{e(kind)}</td><td>{e(name)}</td><td>{v['pass']} / {v['expected']}</td><td>{v['fail']}</td><td>{v['error']}</td><td>{v['pending']}</td></tr>" for kind in ("difficulty", "category") for name, v in report["breakdown"][kind].items())
@@ -240,10 +243,11 @@ def render_html(report: dict, refresh: float = 0) -> str:
     meta_refresh = f'<meta http-equiv="refresh" content="{max(1, int(refresh))}">' if refresh else ""
     return f'''<!doctype html><html lang="ko"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">{meta_refresh}<title>Harness benchmark snapshot</title>
 <style>body{{font-family:system-ui,sans-serif;background:#f6f8fa;color:#18352d;margin:32px}}h1{{margin-bottom:8px}}.score{{font-size:36px;font-weight:700}}table{{border-collapse:collapse;background:white;margin:18px 0;min-width:600px}}td,th{{padding:10px;border-bottom:1px solid #ddd;text-align:left}}.scroll{{overflow:auto}}pre{{white-space:pre-wrap;overflow-wrap:anywhere;background:#eef1ed;padding:16px}}small{{color:#53645e}}</style>
-<h1>{e(heading)}</h1><p><strong>{e(kind_notice)}</strong></p><small>{e(report['job_dir'])} · {e(report['generated_at'])}</small>
+<h1>{e(heading)}</h1><p>Terminal-Bench Pro 로컬 이식판 · 원본 난도 easy 2 / medium 4 / hard 4 · 공식 컨테이너 점수가 아닙니다.</p><p><strong>{e(kind_notice)}</strong></p><small>{e(report['job_dir'])} · {e(report['generated_at'])}</small>
 <p class="score">{summary['pass']} / {summary['expected']} · {summary['score']:.1%}</p>
 <p>pass {summary['pass']} · fail {summary['fail']} · error {summary['error']} · pending {summary['pending']}</p>
 <p>분모는 10 × {report['attempts']}회로 고정합니다. 오류·누락을 제외하지 않습니다. 반복 평균이며 pass@k가 아닙니다.</p>
+<p>모델: {e(report["metadata"].get("model"))} · 제공자: {e(report["metadata"].get("provider"))} · 실행 환경: {e(report["metadata"].get("execution_mode"))}</p>
 <p>Job finished: {e(report['job_finished'])} · 전체 경과 초: {e(report['job_elapsed_seconds'])}</p>
 <h2>난도·분야별 결과</h2><div class="scroll"><table><tr><th>group</th><th>name</th><th>pass / expected</th><th>fail</th><th>error</th><th>pending</th></tr>{groups}</table></div>
 <h2>측정값과 관측 범위</h2><p>unknown은 0이 아닙니다. 일부만 알려진 경우 total 대신 known sum과 관측 수를 확인하세요. 캐시 토큰은 입력 토큰에 포함되어 있어 더하지 않습니다.</p><div class="scroll"><table><tr><th>metric</th><th>total</th><th>known sum</th><th>known / expected</th></tr>{metrics}</table></div>
@@ -279,7 +283,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--manifest", type=Path, default=Path("benchmark/tasks.json"))
     parser.add_argument("--attempts", type=int, default=1)
     parser.add_argument("--watch", type=float, default=0, metavar="SECONDS", help="Refresh snapshots until Ctrl+C")
-    parser.add_argument("--compare", type=Path, help="Baseline Harbor job directory")
+    parser.add_argument("--compare", type=Path, help="Baseline local evaluation job directory")
     parser.add_argument("--output", type=Path, default=Path("report"))
     args = parser.parse_args(argv)
     if args.attempts < 1 or not math.isfinite(args.watch) or args.watch < 0:

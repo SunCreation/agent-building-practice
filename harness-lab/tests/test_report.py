@@ -1,4 +1,4 @@
-"""Fabricated Harbor-shaped fixtures. These tests are NOT benchmark scores."""
+"""Fabricated local evaluator-shaped fixtures. These tests are NOT benchmark scores."""
 import csv
 import json
 import tempfile
@@ -15,13 +15,13 @@ class ReportTests(unittest.TestCase):
         self.root = Path(self.tmp.name)
         self.job = self.root / "job"
         self.job.mkdir()
-        self.tasks = [{"name": f"task-{i}", "difficulty": "easy" if i < 2 else "hard", "category": "files" if i % 2 else "coding"} for i in range(10)]
+        self.tasks = [{"name": f"task-{i}", "difficulty": "easy" if i < 2 else ("medium" if i < 6 else "hard"), "category": "files" if i % 2 else "coding"} for i in range(10)]
         self.manifest = self.root / "tasks.json"
         self.manifest.write_text(json.dumps({"tasks": self.tasks}))
         self.metadata()
 
     def metadata(self, **updates):
-        data = {"attempts": 1, "expected_tasks": [t["name"] for t in self.tasks], "manifest_sha256": load_manifest(self.manifest)[1], "kind": "agent_evaluation", "variant": "baseline", "provider": "mock", "model": "fixture-only", "revision": "fixture-revision", "limits": {"turns": 4}, "status": "running"}
+        data = {"attempts": 1, "expected_tasks": [t["name"] for t in self.tasks], "manifest_sha256": load_manifest(self.manifest)[1], "kind": "agent_evaluation", "variant": "baseline", "provider": "mock", "model": "fixture-only", "revision": "fixture-revision", "limits": {"turns": 4}, "status": "running", "execution_mode": "local", "suite_id": "local-harness-v1", "platform": "fixture-os", "python_version": "3.13.13", "hostlimits": {"workers": 1}}
         data.update(updates)
         (self.job / "run-metadata.json").write_text(json.dumps(data))
 
@@ -39,13 +39,18 @@ class ReportTests(unittest.TestCase):
     def report(self, attempts=1):
         return build_report(self.job, self.manifest, attempts)
 
+    def test_local_job_elapsed_uses_run_metadata(self):
+        self.metadata(execution_mode="local-port", status="finished",
+                      started_at="2026-01-01T00:00:00+00:00", finished_at="2026-01-01T00:00:42+00:00")
+        self.assertEqual(self.report()["job_elapsed_seconds"], 42)
+
     def test_missing_stays_in_denominator(self):
         self.trial()
         r = self.report()
         self.assertEqual(r["summary"]["score"], .1)
         self.assertEqual(r["summary"]["pending"], 9)
         self.assertEqual(r["breakdown"]["difficulty"]["easy"]["expected"], 2)
-        self.assertEqual(r["breakdown"]["difficulty"]["hard"]["expected"], 8)
+        self.assertEqual(r["breakdown"]["difficulty"]["hard"]["expected"], 4)
         self.metadata(status="failed")
         r = self.report()
         self.assertEqual(r["summary"]["error"], 9)
@@ -151,6 +156,29 @@ class ReportTests(unittest.TestCase):
         r = self.report()
         self.assertIn("학생 하네스 성능 아님", render_html(r))
         with self.assertRaises(ValueError): compare_reports(r, r)
+
+    def test_grader_self_check_not_agent_score(self):
+        self.metadata(kind="grader_self_check")
+        r = self.report()
+        self.assertIn("학생 하네스 성능 아님", render_html(r))
+        with self.assertRaises(ValueError): compare_reports(r, r)
+
+    def test_environment_differences_and_unknowns(self):
+        self.metadata(status="completed")
+        baseline = self.report()
+        current = self.report()
+        current["metadata"]["platform"] = "other-os"
+        current["metadata"].pop("python_version")
+        result = compare_reports(current, baseline)
+        self.assertFalse(result["controlled_comparison"])
+        self.assertIn("platform differs", result["differences_or_unknowns"])
+        self.assertIn("python_version unrecorded", result["differences_or_unknowns"])
+
+    def test_unfinished_comparison_flagged(self):
+        r = self.report()
+        result = compare_reports(r, r)
+        self.assertFalse(result["controlled_comparison"])
+        self.assertTrue(any("unfinished" in msg for msg in result["differences_or_unknowns"]))
 
     def test_nonfinite_reward_is_error_and_serializable(self):
         self.trial(0, reward=float("nan"))

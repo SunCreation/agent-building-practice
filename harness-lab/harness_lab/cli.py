@@ -1,4 +1,15 @@
 """Run: python -m harness_lab.cli --workspace ... --prompt ..."""
+# Executing a package file directly loses its package context. Guide the user
+# before importing relative modules, including when launched inside this folder.
+if __name__ == "__main__" and not __package__:
+    import sys
+    from pathlib import Path
+    root = Path(__file__).resolve().parent.parent
+    print(f"프로젝트 폴더에서 실행하세요: {root}\n"
+          "  uv run run.py --help\n"
+          "또는: uv run python -m harness_lab.cli --help", file=sys.stderr)
+    raise SystemExit(2)
+
 import argparse
 import asyncio
 from dataclasses import asdict

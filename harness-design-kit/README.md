@@ -35,4 +35,4 @@ OpenCode는 프로젝트 AGENTS.md를 읽습니다. Claude Code는 CLAUDE.md에�
 이 키트는 실행 프로그램이나 API 키를 포함하지 않습니다. 구현 중 막히면 [실패 진단 안내](TROUBLESHOOTING.md)의 증상 표와 기록 양식을 사용합니다.
 
 ## Python 예시와 평가 도구
-[Python 하네스·10문항 평가 자료](https://github.com/SunCreation/agent-building-practice/releases/download/v3.0.0/harness-lab.zip)는 직접 구현한 반복, 제공자 어댑터, 승인, 세션, Harbor 연결, 점수 모니터를 포함합니다. 예시의 설계와 자기 PRD를 비교한 뒤 실제 기준/변경 후 실험을 수행하고 결과와 소스를 제출합니다.
+[Python 하네스·10문항 평가 자료](https://github.com/SunCreation/agent-building-practice/releases/download/v4.0.0/harness-lab.zip)는 직접 구현한 반복, 제공자 어댑터, 승인, 세션, 로컬 평가 연결, 점수 모니터를 포함합니다. 예시의 설계와 자기 PRD를 비교한 뒤 실제 기준/변경 후 실험을 수행하고 결과와 소스를 제출합니다.
