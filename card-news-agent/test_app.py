@@ -168,6 +168,31 @@ class AppTests(unittest.TestCase):
         self.assertEqual(project["version"], 1)
         self.assertFalse(project["final_approved"])
 
+    def test_plan_feedback_blocks_blank_duplicate_and_approval(self):
+        project = self.project("awaiting_approval", story={"title": "original"})
+        self.assertEqual(self.post(project, "plan-revisions", {"instruction": "   "}).status_code, 422)
+        self.assertEqual(self.post(project, "plan-revisions", {"instruction": "첫 카드에 독자의 고민을 담아 줘"}).status_code, 200)
+        self.assertEqual(self.post(project, "approve").status_code, 409)
+        self.assertEqual(self.post(project, "plan-revisions", {"instruction": "again"}).status_code, 409)
+        self.assertEqual(studio.load(project["id"])["story"]["title"], "original")
+
+    def test_replan_preserves_old_story_until_valid_and_requires_new_approval(self):
+        story = {"title":"test", "audience":"독자", "hook_candidates":["이 차이가 궁금한가요?","다른 후보"], "selected_hook":"이 차이가 궁금한가요?", "hook_reason":"독자의 고민과 연결", "sources":[{"id":"s1","title":"source","url":"https://example.com"}], "cards":[{"id":f"card-{i}","headline":"이 차이가 궁금한가요?" if i == 1 else "설명", "body":"근거 설명", "source_ids":["s1"]} for i in range(1,6)]}
+        project = self.project("running", stage="replan", story=copy.deepcopy(story), answer="독자", research={}, plan_feedback="후킹 보완")
+        brief = {"candidates":[{"headline": h, "reader_interest":"관심", "curiosity":"궁금증", "evidence":"근거", "payoff":"해소", "risk":"과장 없음"} for h in story["hook_candidates"]], "selected_hook":story["selected_hook"], "selection_reason":"관심과 연결"}
+        invalid = copy.deepcopy(story); invalid["cards"][0]["headline"] = "발표 요약"
+        with patch.object(studio,"agent",new_callable=AsyncMock,side_effect=[brief, invalid]):
+            with self.assertRaises(ValueError): asyncio.run(studio.plan(project))
+        self.assertEqual(project["story"], story)
+        with patch.object(studio,"agent",new_callable=AsyncMock,side_effect=[brief, copy.deepcopy(story)]) as planner, patch.object(studio,"generate_image",new_callable=AsyncMock) as generate:
+            asyncio.run(studio.plan(project))
+            generate.assert_not_awaited()
+            self.assertEqual(planner.await_count, 2)
+            self.assertIn("첫 카드 후킹만 먼저", planner.await_args_list[0].args[1])
+            self.assertIn(brief["selected_hook"], planner.await_args_list[1].args[1])
+        self.assertEqual(project["status"], "awaiting_approval")
+        self.assertEqual(project["plan_history"][0]["story"], story)
+
     def test_invalid_transition_and_missing_project(self):
         project = self.project()
         self.assertEqual(self.post(project, "approve").status_code, 409)

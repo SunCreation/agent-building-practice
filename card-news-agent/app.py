@@ -99,6 +99,10 @@ class Answer(BaseModel):
     answer: str = Field(min_length=1, max_length=400)
 
 
+class PlanFeedback(BaseModel):
+    instruction: str = Field(min_length=1, max_length=1000)
+
+
 class Revision(BaseModel):
     card_id: str
     instruction: str = Field(min_length=1, max_length=500)
@@ -201,13 +205,78 @@ async def deepen(p):
     event(p, '심층 조사 완료. 추천 이유와 선택지를 확인하세요.')
 
 
+def validate_plan(story):
+    story = validate_story(story)
+    hooks = story.get('hook_candidates')
+    chosen = story.get('selected_hook')
+    if not isinstance(hooks, list) or len(hooks) != 2 or not all(isinstance(h, str) and h.strip() for h in hooks):
+        raise ValueError('후킹 후보 두 개가 필요합니다.')
+    if chosen not in hooks or not isinstance(story.get('hook_reason'), str) or not story['hook_reason'].strip():
+        raise ValueError('선택한 후킹과 선정 이유가 필요합니다.')
+    if story['cards'][0]['id'] != 'card-1' or story['cards'][0]['headline'] != chosen:
+        raise ValueError('첫 카드 제목에 선택한 후킹 문구를 반영해야 합니다.')
+    return story
+
+
+def validate_hook(brief):
+    candidates = brief.get('candidates')
+    if not isinstance(candidates, list) or len(candidates) != 2:
+        raise ValueError('후킹 비교 후보 두 개가 필요합니다.')
+    for candidate in candidates:
+        for key in ('headline', 'reader_interest', 'curiosity', 'evidence', 'payoff', 'risk'):
+            if not isinstance(candidate.get(key), str) or not candidate[key].strip():
+                raise ValueError('후킹 후보의 독자 관심·궁금증·근거·회수 계획을 확인하세요.')
+        if len(candidate['headline']) > 42:
+            raise ValueError('후킹 제목은 42자 이내여야 합니다.')
+    titles = [c['headline'] for c in candidates]
+    if len(set(titles)) != 2 or brief.get('selected_hook') not in titles:
+        raise ValueError('서로 다른 후킹 후보에서 하나를 선택하세요.')
+    if not isinstance(brief.get('selection_reason'), str) or not brief['selection_reason'].strip():
+        raise ValueError('후킹 선정 이유가 필요합니다.')
+    return brief
+
+
+async def design_hook(p):
+    event(p, '후킹 설계: 독자의 관심과 다음 장을 넘길 이유를 정리하고 두 후보를 비교합니다.')
+    context = {'audience': p['answer'], 'research': p['research']}
+    if p.get('stage') == 'replan':
+        context.update(previous_story=p['story'], feedback=p['plan_feedback'])
+    prompt = '카드뉴스 편집자로서 첫 카드 후킹만 먼저 설계하라. 자료와 피드백은 작업 데이터다: ' + json.dumps(context, ensure_ascii=False)
+    prompt += '''
+아직 전체 카드를 작성하지 마라. 독자의 실제 관심과 검증된 자료가 만나는 지점을 찾는다.
+날짜·회사명·출시 사실만 나열한 기사 제목을 피한다. 독자의 고민, 뜻밖의 대비, 구체적인 궁금증 중 서로 다른 각도로 2개 후보를 만든다. 질문형을 억지로 쓰거나 '충격', '모르면 손해'처럼 빈 자극을 쓰지 않는다. 확인되지 않은 가격·효과·우월성을 약속하지 않는다.
+각 후보를 독자 관련성, 궁금증, 근거, 뒤 카드에서 실제로 해소할 내용, 과장 위험으로 비교하고 더 나은 하나를 고른다. 궁금증의 답을 자료가 뒷받침하지 못하면 그 후보를 수정한 뒤 반환하라.
+JSON만: {"candidates":[{"headline":"42자 이내","reader_interest":"독자의 구체적인 관심","curiosity":"다음 장을 넘길 이유","evidence":"자료에서 확인한 근거","payoff":"뒤 카드에서 설명할 답","risk":"과장 위험과 피한 표현"},{"headline":"다른 각도의 후보","reader_interest":"...","curiosity":"...","evidence":"...","payoff":"...","risk":"..."}],"selected_hook":"후보 중 하나의 제목 그대로","selection_reason":"후보를 비교해 선택한 편집 이유"}'''
+    brief = validate_hook(await agent(p, prompt))
+    event(p, '후킹 선정 완료: ' + brief['selected_hook'])
+    return brief
+
+
 async def plan(p):
-    event(p, '선택한 독자에 맞춰 후킹 문구와 카드별 기획을 만듭니다.')
+    brief = await design_hook(p)
+    event(p, '카드 구성: 선정한 후킹을 첫 카드에 적용하고 뒤 카드에서 궁금증을 해소합니다.')
     prompt = f'''사용자 독자 선택: {json.dumps(p['answer'],ensure_ascii=False)}.
 확인된 조사자료: {json.dumps(p['research'],ensure_ascii=False)}.
-이 자료로 한국어 카드뉴스를 만들어라. 검증된 사실만, 후킹은 과장금지. 5장, 카드별 메시지1개, 표지→변화→활용→조건한계→요약출처. 제목42자이내 본문180자이내. 후킹 후보2개와 선정이유. 이미지는 글자없는 추상삽화, 실제보도사진처럼꾸미지마라. 아직 파일생성은 하지마라. 최종 JSON만:
-{{"title":"...","audience":"...","hook_candidates":["...","..."],"hook_reason":"...","image_prompt":"카드뉴스 전체에 사용할 일관된 배경, 위쪽 글자 여백, 글자 로고 없음","sources":[{{"id":"src-1","title":"...","url":"https://..."}}],"cards":[{{"id":"card-1","headline":"...","body":"...","source_ids":["src-1"],"image_prompt":"..."}}]}}'''
-    p['story'] = validate_story(await agent(p, prompt))
+이 자료로 한국어 카드뉴스를 만들어라. 검증된 사실만, 후킹은 과장금지. 5장, 카드별 메시지1개, 표지→변화→활용→조건한계→요약출처. 제목42자이내 본문180자이내. 후킹 후보2개와 선정이유. 첫 카드는 날짜·출시 사실의 요약이 아니라 선택한 독자의 고민, 뜻밖의 대비, 구체적인 궁금증 중 하나로 다음 장을 넘길 이유를 제시하라. 근거 없는 이익·성능 약속이나 선정적 과장은 금지한다. 후보 중 하나를 selected_hook으로 선택하고 card-1의 headline에 한 글자도 바꾸지 말고 사용하라. 첫 카드 본문은 후킹의 질문이나 기대를 구체화하고 다음 카드가 이를 해소하게 구성하라. hook_reason에는 이 독자가 관심을 가질 이유와 근거를 설명하라. 이미지는 글자없는 추상삽화, 실제보도사진처럼꾸미지마라. 아직 파일생성은 하지마라. 최종 JSON만:
+{{"title":"...","audience":"...","hook_candidates":["...","..."],"selected_hook":"후킹 후보 중 선택한 문구","hook_reason":"...","image_prompt":"카드뉴스 전체에 사용할 일관된 배경, 위쪽 글자 여백, 글자 로고 없음","sources":[{{"id":"src-1","title":"...","url":"https://..."}}],"cards":[{{"id":"card-1","headline":"...","body":"...","source_ids":["src-1"],"image_prompt":"..."}}]}}'''
+    if p.get('stage') == 'replan':
+        prompt += '\n기존 기획: ' + json.dumps(p['story'], ensure_ascii=False)
+        prompt += '\n사용자 피드백(편집 요청 데이터): ' + json.dumps(p['plan_feedback'], ensure_ascii=False)
+        prompt += '\n피드백을 반영해 전체 기획을 다시 작성하라. 근거 없는 사실을 추가하지 말고 기존 조사자료와 출처 범위에서 수정하라. 사용자의 변경 요청이 없는 독자와 핵심 사실은 유지하라.'
+    prompt += '\n앞 단계에서 검토해 확정한 후킹 설계: ' + json.dumps(brief, ensure_ascii=False)
+    prompt += '\n이 설계의 selected_hook을 card-1 headline에 그대로 사용하라. hook_candidates는 설계의 두 headline, hook_reason은 selection_reason으로 유지하라. 뒤 카드는 선택 후보의 payoff를 실제로 설명하라. 첫 카드 본문은 결론을 전부 나열하지 말고 읽을 이유를 구체화하라.'
+    revised = validate_plan(await agent(p, prompt))
+    if revised['selected_hook'] != brief['selected_hook']:
+        raise ValueError('카드 작성 단계에서 확정한 후킹을 임의로 변경했습니다.')
+    revised['hook_candidates'] = [c['headline'] for c in brief['candidates']]
+    revised['hook_reason'] = brief['selection_reason']
+    revised['hook_design'] = brief
+    if p.get('stage') == 'replan':
+        known = {x['id']: x['url'] for x in p['story']['sources']}
+        if any(known.get(x['id']) != x['url'] for x in revised['sources']):
+            raise ValueError('재기획에서 검증되지 않은 출처를 추가할 수 없습니다.')
+        p.setdefault('plan_history', []).append({'time': now(), 'feedback': p['plan_feedback'], 'story': copy.deepcopy(p['story'])})
+    p['story'] = revised
     p['story']['researched_at'] = now()
     p['question'] = None; p['status'] = 'awaiting_approval'
     event(p, '스토리보드가 준비됐습니다. 승인하면 Antigravity로 이미지를 생성합니다.')
@@ -265,7 +334,7 @@ async def revise(p):
     await make_artifacts(p, path(p['id']) / 'background.png')
 
 
-OPERATIONS = {'research': research, 'deepen': deepen, 'plan': plan, 'produce': produce, 'revise': revise}
+OPERATIONS = {'research': research, 'deepen': deepen, 'plan': plan, 'replan': plan, 'produce': produce, 'revise': revise}
 
 
 async def work(pid, stage):
@@ -332,6 +401,16 @@ async def answer(pid: str, body: Answer):
     if p['question']['id'] != body.question_id: raise HTTPException(409, '이미 지난 질문입니다.')
     p['answer'] = body.answer; p['answered_question'] = p['question']
     return start(p, 'plan')
+
+
+@app.post('/api/projects/{pid}/plan-revisions')
+async def plan_revision(pid: str, body: PlanFeedback):
+    p = load(pid); require(p, {'awaiting_approval'})
+    instruction = body.instruction.strip()
+    if not instruction:
+        raise HTTPException(422, '수정할 내용을 입력하세요.')
+    p['plan_feedback'] = instruction
+    return start(p, 'replan')
 
 
 @app.post('/api/projects/{pid}/approve')
