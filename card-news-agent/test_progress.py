@@ -25,17 +25,33 @@ class ProgressTests(unittest.IsolatedAsyncioTestCase):
             await task
             self.assertTrue(any('card news design' in m for m in messages))
 
-    async def test_quiet_process_reports_wait_without_claiming_success(self):
+    async def test_quiet_process_does_not_invent_activity(self):
         with tempfile.TemporaryDirectory() as folder:
             messages=[]
             async def progress(message): messages.append(message)
             with patch.object(engines,'HEARTBEAT_SECONDS',0.03):
                 await engines._run([sys.executable,'-c','import time; time.sleep(.15)'],Path(folder),'test',progress)
-            self.assertTrue(any('응답을 기다리는 중' in m for m in messages))
+            self.assertEqual(messages, ['AI 작업 프로세스를 시작했습니다.'])
 
     def test_private_content_is_not_displayed(self):
         mapper=engines._ProgressEvents()
-        self.assertEqual(mapper.messages({'type':'assistant','message':{'content':[{'type':'thinking','thinking':'private'},{'type':'text','text':'raw response'}]}}),[])
+        self.assertEqual(mapper.messages({'type':'assistant','message':{'content':[{'type':'thinking','thinking':'private'}]}}),[])
         event={'type':'assistant','message':{'content':[{'type':'tool_use','id':'a','name':'WebSearch','input':{'query':'Bearer private-credential'}}]}}
         self.assertNotIn('private-credential',' '.join(mapper.messages(event)))
         self.assertNotIn('token=',engines._safe_url('https://example.org/page?token=private'))
+
+    def test_partial_public_json_is_summarized_and_thinking_excluded(self):
+        mapper=engines._ProgressEvents()
+        def delta(kind,text):
+            return mapper.messages({'type':'stream_event','event':{'type':'content_block_delta','delta':{'type':kind,'text':text,'thinking':text}}})
+        self.assertEqual(delta('thinking_delta','private reasoning'),[])
+        self.assertEqual(delta('text_delta','{"headline": "주방에서'),[])
+        self.assertEqual(delta('text_delta',' 확인할 세 가지"}'),['카드 제목 · 주방에서 확인할 세 가지'])
+        self.assertEqual(mapper.text_summary(force=True),[])
+
+    def test_public_prose_and_secret_redaction(self):
+        mapper=engines._ProgressEvents()
+        result=mapper.messages({'type':'assistant','message':{'content':[{'type':'text','text':'후보 두 개의 차이를 정리하고 있습니다.'}]}})
+        self.assertEqual(result,['작성 내용 · 후보 두 개의 차이를 정리하고 있습니다.'])
+        mapper.public_text='Bearer confidential-token'
+        self.assertEqual(mapper.text_summary(force=True),[])

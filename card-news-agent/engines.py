@@ -55,7 +55,7 @@ def _safe_query(value: Any) -> str:
 
 
 class _ProgressEvents:
-    """Whitelist public activity. Never forward response, thinking or tool output."""
+    """Summarize public output only; never inspect thinking or raw tool results."""
     LABELS = {"WebSearch": "웹 검색", "WebFetch": "원문 읽기", "Read": "자료 읽기",
               "search_web": "웹 검색", "read_url_content": "원문 읽기",
               "generate_image": "이미지 생성", "run_command": "파일 작업",
@@ -64,16 +64,56 @@ class _ProgressEvents:
     def __init__(self):
         self.calls = {}
         self.seen = set()
+        self.public_text = ""
+        self.last_summary = ""
+        self.last_summary_at = 0.0
+
+    def text_summary(self, force=False):
+        if not force and time.monotonic() - self.last_summary_at < 5:
+            return []
+        text = self.public_text[-12000:]
+        labels = {"headline":"카드 제목", "selected_hook":"선정 후킹", "reader_interest":"독자 관심", "curiosity":"넘겨 볼 이유", "payoff":"뒤 카드 구성", "selection_reason":"후킹 선정", "body":"카드 본문", "summary":"조사 요약", "title":"주제", "image_prompt":"이미지 구상"}
+        matches = list(re.finditer(r'"(' + '|'.join(labels) + r')"\s*:\s*("(?:[^"\\]|\\.)*")', text))
+        if matches:
+            match = matches[-1]
+            value = json.loads(match.group(2))
+            label = labels[match.group(1)]
+        elif text.lstrip().startswith(('{', '[', '```')):
+            return []  # Do not display broken JSON or internal fields.
+        else:
+            value = text.strip().split('\n')[-1]
+            label = "작성 내용"
+        value = _safe_query(value)
+        if not value or value == "검색어 상세 숨김":
+            return []
+        summary = f"{label} · {value[:140]}" + ("…" if len(value) > 140 else "")
+        if summary == self.last_summary:
+            return []
+        self.last_summary = summary
+        self.last_summary_at = time.monotonic()
+        return [summary]
 
     def messages(self, event: dict) -> list[str]:
         messages = []
         kind = event.get("type")
-        if kind in {"assistant", "user"}:
+        if kind == "stream_event":
+            chunk = event.get("event") or {}
+            if chunk.get("type") == "content_block_start" and (chunk.get("content_block") or {}).get("type") == "text":
+                self.public_text = (chunk.get("content_block") or {}).get("text", "")
+            elif chunk.get("type") == "content_block_delta" and (chunk.get("delta") or {}).get("type") == "text_delta":
+                self.public_text = (self.public_text + chunk["delta"].get("text", ""))[-24000:]
+                messages.extend(self.text_summary())
+            elif chunk.get("type") == "content_block_stop":
+                messages.extend(self.text_summary(force=True))
+        elif kind in {"assistant", "user"}:
             message = event.get("message") or {}
             blocks = message.get("content", []) if isinstance(message, dict) else []
             for block in blocks if isinstance(blocks, list) else []:
                 if not isinstance(block, dict):
                     continue
+                if kind == "assistant" and block.get("type") == "text":
+                    self.public_text = str(block.get("text", ""))[-24000:]
+                    messages.extend(self.text_summary(force=True))
                 tool_id = block.get("id")
                 if block.get("type") == "tool_use" and isinstance(tool_id, str):
                     name = block.get("name")
@@ -101,6 +141,9 @@ class _ProgressEvents:
             if not isinstance(step, dict):
                 return []
             state, category = step.get("state"), step.get("step_type")
+            if category == "agent_response" and isinstance(step.get("text_delta"), str):
+                self.public_text = (self.public_text + step['text_delta'])[-24000:]
+                return self.text_summary(force=state == "DONE")
             key = (step.get("step_index"), state, category)
             if key in self.seen or state not in {"ACTIVE", "DONE"}:
                 return []
@@ -119,8 +162,7 @@ class _ProgressEvents:
                     elif name == "read_url_content":
                         detail = _safe_url(params.get("url") or params.get("Url"))
                 messages.append(label + " " + suffix + (": " + detail if detail else ""))
-            elif category == "agent_response" and state == "ACTIVE":
-                messages.append("최종 응답을 작성하는 중입니다.")
+
         return messages
 
 
@@ -261,8 +303,8 @@ async def _run(argv: list[str], cwd: Path, call_id: str,
             await asyncio.sleep(HEARTBEAT_SECONDS)
             if process.returncode is not None:
                 return
-            if time.monotonic() - last_public_event >= HEARTBEAT_SECONDS:
-                await notify("작업 프로세스가 아직 종료되지 않았습니다. 다음 활동 또는 응답을 기다리는 중입니다.")
+            for message in mapper.text_summary(force=True):
+                await notify(message)
 
     try:
         process = await asyncio.create_subprocess_exec(
@@ -355,7 +397,7 @@ async def ask(prompt: str, cwd: str | Path, session_id: str | None = None,
         "For purely editorial follow-ups use the verified evidence already in this session. "
         "Do not read credential or authentication files. Return the format requested by the user."
     )
-    argv = ["claude", "-p", "--output-format", "stream-json", "--verbose",
+    argv = ["claude", "-p", "--output-format", "stream-json", "--verbose", "--include-partial-messages",
             "--allowedTools", "WebSearch,WebFetch,Read", "--tools", "WebSearch,WebFetch,Read",
             "--append-system-prompt", system]
     if session_id:
