@@ -41,7 +41,7 @@
 
 **확인할 것:** 앱이 요청을 보냈다는 사실과 이미지 파일이 생성됐다는 사실을 구분합니다. 생성 결과의 파일이 존재하고 실제 이미지로 열리는 것을 확인한 뒤에만 완료로 표시해야 합니다. 생성 실패 시 해당 카드에 오류와 재시도 버튼을 보여 주고, 확정한 스토리보드와 다른 카드의 결과는 유지합니다.
 
-Headless는 대화형 화면 없이 요청을 실행하는 방식입니다. 이 실행에서는 필요한 도구 권한을 대화형으로 받을 수 없어 작업이 거부될 수 있습니다. 종료 코드나 응답 문장만으로 이미지 생성 성공을 판단하지 말고 결과 파일까지 검증합니다. 인증이나 권한 때문에 실패하면 원인을 화면에 표시하고, 대화형 `agy`에서 로그인과 필요한 작업 승인을 마친 뒤 재시도하도록 안내합니다. 권한 확인을 무조건 건너뛰는 플래그로 해결하지 않습니다. [Headless 실행과 권한](https://www.antigravity.google/docs/cli/headless/), [설치와 인증](https://www.antigravity.google/docs/cli/install/)
+Headless는 대화형 화면 없이 요청을 실행하는 방식입니다. 이 실행에서는 필요한 도구 권한을 대화형으로 받을 수 없어 작업이 거부될 수 있습니다. 종료 코드나 응답 문장만으로 이미지 생성 성공을 판단하지 말고 결과 파일까지 검증합니다. 인증 실패는 대화형 `agy`에서 로그인을 확인하고, 권한 거부는 필요한 도구의 허용 규칙을 설정한 뒤 재시도합니다. 승인한 작업을 별도 작업 폴더에서 시험할 때는 해당 실행에 `--dangerously-skip-permissions`를 추가하는 방법도 있습니다. 이 옵션은 이미지 도구에만 권한을 주는 것이 아니라 그 실행의 모든 도구 요청을 자동 승인합니다. 웹 서비스에 연결할 때는 필요한 도구만 허용하는 규칙을 우선 사용합니다. [Headless 실행과 권한](https://www.antigravity.google/docs/cli/headless/), [설치와 인증](https://www.antigravity.google/docs/cli/install/)
 
 <details>
 <summary>수동 참고: Antigravity CLI에서 요청하는 방법</summary>
@@ -58,9 +58,13 @@ agy
 agy -p '내장 generate_image 도구로 AI 소식을 설명하는 카드뉴스용 일러스트를 만들어 줘. 청색과 흰색, 단순한 구도, 위쪽 제목 여백, 이미지 안에 글자 없음. 현재 작업 폴더의 card-01.png로 저장하고 실제 저장 경로를 알려 줘.'
 ```
 
-`card-01.png`는 자연어로 요청한 저장 위치입니다. 반환된 경로와 파일을 다시 확인합니다. `--output-format json`은 CLI 응답 형식이며 이미지 파일 형식 옵션이 아닙니다. headless 실행 중 권한이 거부되면 대화형 세션에서 같은 작업을 요청하고 필요한 승인을 진행합니다. [공식 일회성 프롬프트 문서](https://www.antigravity.google/docs/cli/headless/)
+`card-01.png`는 자연어로 요청한 저장 위치입니다. 반환된 경로와 파일을 다시 확인합니다. `--output-format json`은 CLI 응답 형식이며 이미지 파일 형식 옵션이 아닙니다. headless 실행 중 권한이 거부되면 `permissions.allow` 규칙으로 필요한 도구를 허용할 수 있습니다. 승인한 시험 작업에서 이번 실행의 모든 도구 요청을 허용하려면 위 명령 끝에 `--dangerously-skip-permissions`를 붙입니다. 이 플래그는 전역 설정 파일을 바꾸지 않으며, 작업 폴더 자체가 보안 격리를 제공하는 것은 아닙니다. [공식 일회성 프롬프트 문서](https://www.antigravity.google/docs/cli/headless/)
 
 </details>
+
+다음은 Antigravity CLI로 실제 생성하고 파일을 열어 확인한 배경입니다. 원본은 1024×1024 PNG이며 아직 글자를 배치하지 않은 상태입니다. 앱에서는 선택한 최종 카드 크기에 맞춰 배치하고 제목·본문을 별도로 넣습니다.
+
+![Antigravity CLI로 생성한 AI 기술 카드뉴스 배경](https://raw.githubusercontent.com/SunCreation/agent-building-practice/main/card-news-workflow-kit/assets/ai-news-background.png)
 
 ### 5. 글자를 별도로 넣고 미리보기를 수정합니다
 
